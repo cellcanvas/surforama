@@ -123,7 +123,7 @@ class QtSurforama(QWidget):
 
         if (surface_layer is None) or (image_layer is None):
             return
-
+        
         # Create a mesh object using trimesh
         self.mesh = trimesh.Trimesh(vertices=surface_layer.data[0], faces=surface_layer.data[1])
 
@@ -172,8 +172,11 @@ class QtSurforama(QWidget):
         return normalized_values
 
     def get_point_set(self):
-        return self.vertices
+        return self.mesh.vertices
 
+    def get_faces(self):
+        return self.mesh.faces
+    
     def slide_points(self, value):
         # Calculate the new positions of points along their normals
         shift = value / 10
@@ -185,11 +188,8 @@ class QtSurforama(QWidget):
         self.vertices = new_positions
         self.update_mesh()
 
-    def get_faces(self):
-        return self.faces
-
     def update_mesh(self):
-        self.surface_layer.data = (self.get_point_set(), self.get_faces(), self.color_values)
+        self.surface_layer.data = (self.vertices, self.get_faces(), self.color_values)
 
     def update_colors_based_on_sampling(self, value):
         spacing = 0.5
@@ -353,8 +353,8 @@ if __name__ == "__main__":
     # obj_path = "/Users/kharrington/Data/membranorama/TS_004_dose-filt_lp50_bin8_membrain_model.obj"
     # tomo_path = "/Users/kharrington/Data/membranorama/TS_004_dose-filt_lp50_bin8.rec"
 
-    obj_path = "tomo_17_M10_grow1_1_mesh_data.obj"
-    tomo_path = "tomo_17_M10_grow1_1_mesh_data.mrc"
+    obj_path = "/Users/kharrington/Data/membranorama/tomo_17_M10_grow1_1_mesh_data.obj"
+    tomo_path = "/Users/kharrington/Data/membranorama/tomo_17_M10_grow1_1_mesh_data.mrc"
 
     mrc = mrcfile.open(tomo_path)
     tomo_mrc = np.array(mrc.data)
