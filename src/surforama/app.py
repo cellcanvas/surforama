@@ -2,19 +2,23 @@ import numpy as np
 import napari
 import mrcfile
 import trimesh
-# from trimesh.exchange.binvox import voxelize_mesh
-from trimesh.voxel.creation import voxelize_binvox
-# pip install binvox
+
 from qtpy.QtWidgets import QWidget, QVBoxLayout, QSlider, QLabel
 from qtpy.QtCore import Qt
 
 def read_obj_file_and_compute_normals(file_path, scale_factor=1):
     mesh = trimesh.load(file_path, file_type='obj', process=True)
-
+    
     # Subdivide
-    # verts, faces = trimesh.remesh.subdivide_to_size(mesh.vertices, mesh.faces, 1)
+    # verts, faces = trimesh.remesh.subdivide_to_size(mesh.vertices, mesh.faces, 1)    
+
+    # Subdivide can introduce holes
+    # mesh = trimesh.Trimesh(vertices=verts, faces=faces)
+    # trimesh.repair.fill_holes(mesh)
+    
     verts = mesh.vertices
     faces = mesh.faces
+
     verts = verts[:, [2, 1, 0]]
     
     values = np.ones((len(verts),))
@@ -132,37 +136,38 @@ class Surforama(QWidget):
         self.color_values = new_colors
         self.update_mesh()
 
-
-# obj_path = "/Users/kharrington/Data/membranorama/T17S1C3M4.obj"
-# tomo_path = "/Users/kharrington/Data/membranorama/tomo17_load1G5L3_bin4_denoised_ctfcorr_scaled3.rec"
-
-obj_path = "/Users/kharrington/Data/membranorama/TS_004_dose-filt_lp50_bin8_membrain_model.obj"
-tomo_path = "/Users/kharrington/Data/membranorama/TS_004_dose-filt_lp50_bin8.rec"
-
-# obj_path = "/Users/kharrington/Data/membranorama/tomo_17_M10_grow1_1_mesh_data.obj"
-# tomo_path = "/Users/kharrington/Data/membranorama/tomo_17_M10_grow1_1_mesh_data.mrc"
-
-mrc = mrcfile.open(tomo_path)
-tomo_mrc = np.array(mrc.data)
-
-# vertices, faces, values, normals = read_obj_file_and_compute_normals(obj_path, scale_factor=14.08)
-vertices, faces, values = read_obj_file_and_compute_normals(obj_path)
-surface = (vertices, faces, values)
-# print("Vertices:", vertices)
-# print("Faces:", faces)
-
-viewer = napari.Viewer(ndisplay=3)
-
-volume_layer = viewer.add_image(tomo_mrc)
-surface_layer = viewer.add_surface(surface)
-
-# Testing points
-
-point_set = surface[0]
-
-volume_shape = np.array(tomo_mrc.data.shape)
-points_indices = np.round(point_set).astype(int)
         
-# Instantiate the widget and add it to Napari
-surforama_widget = Surforama(viewer, surface_layer, volume_layer)
-viewer.window.add_dock_widget(surforama_widget, area='right', name='Surforama')
+if __name__ == "__main__":
+    # obj_path = "/Users/kharrington/Data/membranorama/T17S1C3M4.obj"
+    # tomo_path = "/Users/kharrington/Data/membranorama/tomo17_load1G5L3_bin4_denoised_ctfcorr_scaled3.rec"
+
+    # obj_path = "/Users/kharrington/Data/membranorama/TS_004_dose-filt_lp50_bin8_membrain_model.obj"
+    # tomo_path = "/Users/kharrington/Data/membranorama/TS_004_dose-filt_lp50_bin8.rec"
+
+    obj_path = "/Users/kharrington/Data/membranorama/tomo_17_M10_grow1_1_mesh_data.obj"
+    tomo_path = "/Users/kharrington/Data/membranorama/tomo_17_M10_grow1_1_mesh_data.mrc"
+
+    mrc = mrcfile.open(tomo_path)
+    tomo_mrc = np.array(mrc.data)
+
+    # vertices, faces, values, normals = read_obj_file_and_compute_normals(obj_path, scale_factor=14.08)
+    vertices, faces, values = read_obj_file_and_compute_normals(obj_path)
+    surface = (vertices, faces, values)
+    # print("Vertices:", vertices)
+    # print("Faces:", faces)
+
+    viewer = napari.Viewer(ndisplay=3)
+
+    volume_layer = viewer.add_image(tomo_mrc)
+    surface_layer = viewer.add_surface(surface)
+
+    # Testing points
+
+    point_set = surface[0]
+
+    volume_shape = np.array(tomo_mrc.data.shape)
+    points_indices = np.round(point_set).astype(int)
+
+    # Instantiate the widget and add it to Napari
+    surforama_widget = Surforama(viewer, surface_layer, volume_layer)
+    viewer.window.add_dock_widget(surforama_widget, area='right', name='Surforama')
