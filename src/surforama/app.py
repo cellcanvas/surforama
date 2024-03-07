@@ -184,6 +184,12 @@ class QtSurforama(QWidget):
         # Update the points layer with new positions
         new_colors = self.get_point_colors(new_positions)
 
+        vol_shape = self.volume.shape
+        
+        new_positions[:, 0] = np.clip(new_positions[:, 0], 0, vol_shape[2]-1)
+        new_positions[:, 1] = np.clip(new_positions[:, 1], 0, vol_shape[1]-1)
+        new_positions[:, 2] = np.clip(new_positions[:, 2], 0, vol_shape[0]-1)
+        
         self.color_values = new_colors
         self.vertices = new_positions
         self.update_mesh()
