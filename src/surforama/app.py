@@ -1,10 +1,17 @@
-import numpy as np
+from pathlib import Path
+from typing import Optional, List
+
 import napari
+from magicgui import magicgui
 import mrcfile
+from napari.layers import Surface, Image
+import numpy as np
+from qtpy.QtCore import Qt
+from qtpy.QtWidgets import QWidget, QVBoxLayout, QLabel, QSlider, QPushButton, QGroupBox
+import pandas as pd
+import starfile
 import trimesh
 
-from qtpy.QtWidgets import QWidget, QVBoxLayout, QSlider, QLabel
-from qtpy.QtCore import Qt
 
 def read_obj_file_and_compute_normals(file_path, scale_factor=1):
     mesh = trimesh.load(file_path, file_type='obj', process=True)
@@ -25,51 +32,136 @@ def read_obj_file_and_compute_normals(file_path, scale_factor=1):
 
     return verts, faces, values
 
-class Surforama(QWidget):
-    def __init__(self, viewer, surface_layer, volume_layer):
-        super().__init__()
+
+# column names for the starfile
+STAR_X_COLUMN_NAME = "rlnCoordinateX"
+STAR_Y_COLUMN_NAME = "rlnCoordinateY"
+STAR_Z_COLUMN_NAME = "rlnCoordinateZ"
+
+
+class QtSurforama(QWidget):
+    def __init__(
+            self,
+            viewer: napari.Viewer,
+            surface_layer: Optional[Surface] = None,
+            volume_layer: Optional[Image] = None,
+            parent: Optional[QWidget] = None
+    ):
+        super().__init__(parent=parent)
         self.viewer = viewer
 
-        self.surface_layer = surface_layer
-        self.volume_layer = volume_layer
 
-        # Create a mesh object using trimesh
-        self.mesh = trimesh.Trimesh(vertices=surface_layer.data[0], faces=surface_layer.data[1])
+        # make the layer selection widget
+        self._layer_selection_widget = magicgui(
+            self._set_layers,
+            surface_layer={"choices": self._get_valid_surface_layers},
+            image_layer={"choices": self._get_valid_image_layers},
+            call_button="start surfing",
+        )
 
-        self.vertices = self.mesh.vertices
-        self.faces = self.mesh.faces
-        
-        # Compute vertex normals
-        self.color_values = np.ones((self.mesh.vertices.shape[0],))
+        # add callback to update choices
+        self.viewer.layers.events.inserted.connect(self._on_layer_update)
+        self.viewer.layers.events.removed.connect(self._on_layer_update)
 
-        self.surface_layer.data = (self.vertices, self.faces, self.color_values)
-                
-        self.normals = self.mesh.vertex_normals
-        self.volume = volume_layer.data
-        
-        self.layout = QVBoxLayout()
-        label = QLabel("Extend/contract surface")
-        self.layout.addWidget(label)
+
+
+        # make the slider to change thickness
         self.slider = QSlider()
         self.slider.setOrientation(Qt.Horizontal)
         self.slider.setMinimum(-100)
         self.slider.setMaximum(100)
         self.slider.setValue(0)
         self.slider.valueChanged.connect(self.slide_points)
-        self.layout.addWidget(self.slider)
+        self.slider.setVisible(False)
+
 
         # New slider for sampling depth
-        label = QLabel("Surface Thickness")
-        self.layout.addWidget(label)
+
+
         self.sampling_depth_slider = QSlider()
         self.sampling_depth_slider.setOrientation(Qt.Horizontal)
         self.sampling_depth_slider.setMinimum(1)
         self.sampling_depth_slider.setMaximum(100)
         self.sampling_depth_slider.setValue(10)
         self.sampling_depth_slider.valueChanged.connect(self.update_colors_based_on_sampling)
-        self.layout.addWidget(self.sampling_depth_slider)
-        
-        self.setLayout(self.layout)
+        self.sampling_depth_slider.setVisible(False)
+
+
+        # make the picking widget
+        self.picking_widget = QtSurfacePicker(surforama=self, parent=self)
+        self.picking_widget.setVisible(False)
+
+        # make the saving widget
+        self.point_writer_widget = QtPointWriter(surface_picker=self.picking_widget, parent=self)
+        self.point_writer_widget.setVisible(False)
+
+        # make the layout
+        self.setLayout(QVBoxLayout())
+        self.layout().addWidget(self._layer_selection_widget.native)
+        self.layout().addWidget(QLabel("Extend/contract surface"))
+        self.layout().addWidget(self.slider)
+        self.layout().addWidget(QLabel("Surface Thickness"))
+        self.layout().addWidget(self.sampling_depth_slider)
+        self.layout().addWidget(self.picking_widget)
+        self.layout().addWidget(self.point_writer_widget)
+        self.layout().addStretch()
+
+        # set the layers
+        self._set_layers(
+            surface_layer=surface_layer,
+            image_layer=volume_layer
+
+        )
+
+    def _set_layers(
+        self,
+        surface_layer: Surface,
+        image_layer: Image,
+    ):
+        self.surface_layer = surface_layer
+        self.image_layer = image_layer
+
+        if (surface_layer is None) or (image_layer is None):
+            return
+
+        # Create a mesh object using trimesh
+        self.mesh = trimesh.Trimesh(vertices=surface_layer.data[0], faces=surface_layer.data[1])
+
+        self.vertices = self.mesh.vertices
+        self.faces = self.mesh.faces
+
+        # Compute vertex normals
+        self.color_values = np.ones((self.mesh.vertices.shape[0],))
+
+        self.surface_layer.data = (self.vertices, self.faces, self.color_values)
+        self.surface_layer.refresh()
+
+        self.normals = self.mesh.vertex_normals
+        self.volume = image_layer.data
+
+        # make the widgets visible
+        self.slider.setVisible(True)
+        self.sampling_depth_slider.setVisible(True)
+        self.picking_widget.setVisible(True)
+        self.point_writer_widget.setVisible(True)
+
+    def _get_valid_surface_layers(self, combo_box) -> List[Surface]:
+        return [
+            layer
+            for layer in self._viewer.layers
+            if isinstance(layer, napari.layers.Surface)
+        ]
+
+    def _on_layer_update(self, event=None):
+        """When the model updates the selected layer, update the relevant widgets."""
+        self._layer_selection_widget.reset_choices()
+
+    def _get_valid_image_layers(self, combo_box) -> List[Image]:
+        return [
+            layer
+            for layer in self._viewer.layers
+            if isinstance(layer, napari.layers.Image)
+        ]
 
     def get_point_colors(self, points):
         point_indices = points.astype(int)
@@ -81,7 +173,7 @@ class Surforama(QWidget):
 
     def get_point_set(self):
         return self.vertices
-    
+
     def slide_points(self, value):
         # Calculate the new positions of points along their normals
         shift = value / 10
@@ -130,11 +222,128 @@ class Surforama(QWidget):
 
             # Normalize the mean of samples for this point using the min and max from all samples
             mean_value = np.mean(samples)
-            normalized_value = (mean_value - samples_min) / (samples_max - samples_min) if samples_max > samples_min else 0
+            normalized_value = (mean_value - samples_min) / (
+                        samples_max - samples_min) if samples_max > samples_min else 0
             new_colors[i] = normalized_value
 
         self.color_values = new_colors
         self.update_mesh()
+
+
+class QtSurfacePicker(QGroupBox):
+    ENABLE_BUTTON_TEXT = "Enable"
+    DISABLE_BUTTON_TEXT = "Disable"
+
+    def __init__(self, surforama: QtSurforama, parent: Optional[QWidget] = None):
+        super().__init__("Pick on surface", parent=parent)
+        self.surforama = surforama
+        self.points_layer = None
+
+        # enable state
+        self.enabled = False
+
+        # make the activate button
+        self.enable_button = QPushButton(self.ENABLE_BUTTON_TEXT)
+        self.enable_button.clicked.connect(self._on_enable_button_pressed)
+
+        # make the layout
+        self.setLayout(QVBoxLayout())
+        self.layout().addWidget(self.enable_button)
+
+    def _on_enable_button_pressed(self, event):
+        # toggle enabled
+        if self.enabled:
+            # if currently enabled, toggle to disabled
+            self.enabled = False
+            self.enable_button.setText(self.ENABLE_BUTTON_TEXT)
+
+        else:
+            # if disabled, toggle to enabled
+            self.enabled = True
+            self.enable_button.setText(self.DISABLE_BUTTON_TEXT)
+
+            if self.points_layer is None:
+                self._initialize_points_layer()
+            self.points_layer.visible = True
+
+        self._on_enable_change()
+
+    def _on_enable_change(self):
+        if self.enabled:
+            self._connect_mouse_callbacks()
+        else:
+            self._disconnect_mouse_callbacks()
+
+    def _initialize_points_layer(self):
+        self.points_layer = self.surforama.viewer.add_points(ndim=3, size=3, face_color="magenta")
+        self.points_layer.shading = "spherical"
+        self.surforama.viewer.layers.selection = [self.surforama.surface_layer]
+
+    def _connect_mouse_callbacks(self):
+        self.surforama.surface_layer.mouse_drag_callbacks.append(self._find_point_on_click)
+
+    def _disconnect_mouse_callbacks(self):
+        self.surforama.surface_layer.mouse_drag_callbacks.remove(self._find_point_on_click)
+
+    def _find_point_on_click(self, layer, event):
+        # if "Alt" not in event.modifiers:
+        #    return
+
+        click_origin = event.position
+        value = layer.get_value(
+            event.position,
+            view_direction=event.view_direction,
+            dims_displayed=event.dims_displayed,
+            world=True
+        )
+        if value is None:
+            return
+        triangle_index = value[1]
+        if triangle_index is None:
+            # if the click did not intersect the mesh, don't do anything
+            return
+
+        candidate_vertices = layer.data[1][triangle_index]
+        candidate_points = layer.data[0][candidate_vertices]
+        _, intersection_coords = napari.utils.geometry.find_nearest_triangle_intersection(
+            event.position,
+            event.view_direction,
+            candidate_points[None, :, :]
+        )
+
+        self.points_layer.add(np.atleast_2d(intersection_coords))
+
+
+class QtPointWriter(QGroupBox):
+    def __init__(self, surface_picker:QtSurfacePicker, parent: Optional[QWidget] = None):
+        super().__init__("Save points", parent=parent)
+        self.surface_picker = surface_picker
+
+        # make the points saving widget
+        self.file_saving_widget = magicgui(
+            self._write_star_file,
+            output_path={"mode": "w"},
+            call_button="Save to star file"
+        )
+
+        # make the layout
+        self.setLayout(QVBoxLayout())
+        self.layout().addWidget(self.file_saving_widget.native)
+
+    def _write_star_file(
+            self,
+            output_path: Path
+    ):
+        points = self.surface_picker.points_layer.data
+        points_table = pd.DataFrame(
+            {
+                STAR_Z_COLUMN_NAME: points[:, 0],
+                STAR_Y_COLUMN_NAME: points[:, 1],
+                STAR_X_COLUMN_NAME: points[:, 2]
+            }
+        )
+        starfile.write(points_table, output_path)
+
 
         
 if __name__ == "__main__":
@@ -144,8 +353,8 @@ if __name__ == "__main__":
     # obj_path = "/Users/kharrington/Data/membranorama/TS_004_dose-filt_lp50_bin8_membrain_model.obj"
     # tomo_path = "/Users/kharrington/Data/membranorama/TS_004_dose-filt_lp50_bin8.rec"
 
-    obj_path = "/Users/kharrington/Data/membranorama/tomo_17_M10_grow1_1_mesh_data.obj"
-    tomo_path = "/Users/kharrington/Data/membranorama/tomo_17_M10_grow1_1_mesh_data.mrc"
+    obj_path = "tomo_17_M10_grow1_1_mesh_data.obj"
+    tomo_path = "tomo_17_M10_grow1_1_mesh_data.mrc"
 
     mrc = mrcfile.open(tomo_path)
     tomo_mrc = np.array(mrc.data)
@@ -169,5 +378,7 @@ if __name__ == "__main__":
     points_indices = np.round(point_set).astype(int)
 
     # Instantiate the widget and add it to Napari
-    surforama_widget = Surforama(viewer, surface_layer, volume_layer)
+    surforama_widget = QtSurforama(viewer, surface_layer, volume_layer)
     viewer.window.add_dock_widget(surforama_widget, area='right', name='Surforama')
+
+    napari.run()
