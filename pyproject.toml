@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 
 [tool.setuptools_scm]
-write_to = "src/multimaterial_mesh/_version.py"
+write_to = "src/surforama/_version.py"
 
 
 [tool.black]
