@@ -7,7 +7,7 @@ categories: ["Annotation", "Visualization"]
 contributions:
   commands:
     - id: surforama.make_widget
-      python_name: surforama:Surforama
+      python_name: surforama:QtSurforama
       title: Make Surforama
   widgets:
     - command: surforama.make_widget
