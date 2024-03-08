@@ -18,11 +18,11 @@ app = typer.Typer(
 def launch_surforama(
     image_path: Annotated[
         Optional[str],
-        typer.Argument(help="Path to the image to load.")
+        typer.Option(help="Path to the image to load.")
     ]=None,
     mesh_path: Annotated[
         Optional[str],
-        typer.Argument(help="Path to the mesh to load.")
+        typer.Option(help="Path to the mesh to load.")
     ]=None
 ):
     viewer = napari.Viewer(ndisplay=3)
