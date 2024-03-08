@@ -1,33 +1,42 @@
 from pathlib import Path
-from typing import Optional, List
+from typing import List, Optional
 
-import napari
-from magicgui import magicgui
 import mrcfile
-from napari.layers import Surface, Image
+import napari
 import numpy as np
-from qtpy.QtCore import Qt
-from qtpy.QtWidgets import QWidget, QVBoxLayout, QLabel, QSlider, QPushButton, QGroupBox
 import pandas as pd
 import starfile
 import trimesh
+from magicgui import magicgui
+from napari.layers import Image, Surface
+from qtpy.QtCore import Qt
+from qtpy.QtWidgets import (
+    QGroupBox,
+    QLabel,
+    QPushButton,
+    QSlider,
+    QVBoxLayout,
+    QWidget,
+)
 
 
 def read_obj_file_and_compute_normals(file_path, scale_factor=1):
-    mesh = trimesh.load(file_path, file_type='obj', process=True)
-    
+    mesh = trimesh.load(file_path, file_type="obj", process=True)
+
     # Subdivide
-    # verts, faces = trimesh.remesh.subdivide_to_size(mesh.vertices, mesh.faces, 1)    
+    # verts, faces = trimesh.remesh.subdivide_to_size(
+    # mesh.vertices, mesh.faces, 1
+    # )
 
     # Subdivide can introduce holes
     # mesh = trimesh.Trimesh(vertices=verts, faces=faces)
     # trimesh.repair.fill_holes(mesh)
-    
+
     verts = mesh.vertices
     faces = mesh.faces
 
     verts = verts[:, [2, 1, 0]]
-    
+
     values = np.ones((len(verts),))
 
     return verts, faces, values
@@ -41,15 +50,14 @@ STAR_Z_COLUMN_NAME = "rlnCoordinateZ"
 
 class QtSurforama(QWidget):
     def __init__(
-            self,
-            viewer: napari.Viewer,
-            surface_layer: Optional[Surface] = None,
-            volume_layer: Optional[Image] = None,
-            parent: Optional[QWidget] = None
+        self,
+        viewer: napari.Viewer,
+        surface_layer: Optional[Surface] = None,
+        volume_layer: Optional[Image] = None,
+        parent: Optional[QWidget] = None,
     ):
         super().__init__(parent=parent)
         self.viewer = viewer
-
 
         # make the layer selection widget
         self._layer_selection_widget = magicgui(
@@ -63,8 +71,6 @@ class QtSurforama(QWidget):
         self.viewer.layers.events.inserted.connect(self._on_layer_update)
         self.viewer.layers.events.removed.connect(self._on_layer_update)
 
-
-
         # make the slider to change thickness
         self.slider = QSlider()
         self.slider.setOrientation(Qt.Horizontal)
@@ -74,25 +80,26 @@ class QtSurforama(QWidget):
         self.slider.valueChanged.connect(self.slide_points)
         self.slider.setVisible(False)
 
-
         # New slider for sampling depth
-
 
         self.sampling_depth_slider = QSlider()
         self.sampling_depth_slider.setOrientation(Qt.Horizontal)
         self.sampling_depth_slider.setMinimum(1)
         self.sampling_depth_slider.setMaximum(100)
         self.sampling_depth_slider.setValue(10)
-        self.sampling_depth_slider.valueChanged.connect(self.update_colors_based_on_sampling)
+        self.sampling_depth_slider.valueChanged.connect(
+            self.update_colors_based_on_sampling
+        )
         self.sampling_depth_slider.setVisible(False)
-
 
         # make the picking widget
         self.picking_widget = QtSurfacePicker(surforama=self, parent=self)
         self.picking_widget.setVisible(False)
 
         # make the saving widget
-        self.point_writer_widget = QtPointWriter(surface_picker=self.picking_widget, parent=self)
+        self.point_writer_widget = QtPointWriter(
+            surface_picker=self.picking_widget, parent=self
+        )
         self.point_writer_widget.setVisible(False)
 
         # make the layout
@@ -107,11 +114,7 @@ class QtSurforama(QWidget):
         self.layout().addStretch()
 
         # set the layers
-        self._set_layers(
-            surface_layer=surface_layer,
-            image_layer=volume_layer
-
-        )
+        self._set_layers(surface_layer=surface_layer, image_layer=volume_layer)
 
     def _set_layers(
         self,
@@ -123,9 +126,11 @@ class QtSurforama(QWidget):
 
         if (surface_layer is None) or (image_layer is None):
             return
-        
+
         # Create a mesh object using trimesh
-        self.mesh = trimesh.Trimesh(vertices=surface_layer.data[0], faces=surface_layer.data[1])
+        self.mesh = trimesh.Trimesh(
+            vertices=surface_layer.data[0], faces=surface_layer.data[1]
+        )
 
         self.vertices = self.mesh.vertices
         self.faces = self.mesh.faces
@@ -133,7 +138,11 @@ class QtSurforama(QWidget):
         # Compute vertex normals
         self.color_values = np.ones((self.mesh.vertices.shape[0],))
 
-        self.surface_layer.data = (self.vertices, self.faces, self.color_values)
+        self.surface_layer.data = (
+            self.vertices,
+            self.faces,
+            self.color_values,
+        )
         self.surface_layer.refresh()
 
         self.normals = self.mesh.vertex_normals
@@ -153,7 +162,7 @@ class QtSurforama(QWidget):
         ]
 
     def _on_layer_update(self, event=None):
-        """When the model updates the selected layer, update the relevant widgets."""
+        """When the model updates the selected layer, update widgets."""
         self._layer_selection_widget.reset_choices()
 
     def _get_valid_image_layers(self, combo_box) -> List[Image]:
@@ -166,8 +175,12 @@ class QtSurforama(QWidget):
     def get_point_colors(self, points):
         point_indices = points.astype(int)
 
-        point_values = self.volume[point_indices[:, 0], point_indices[:, 1], point_indices[:, 2]]
-        normalized_values = (point_values - point_values.min()) / (point_values.max() - point_values.min())
+        point_values = self.volume[
+            point_indices[:, 0], point_indices[:, 1], point_indices[:, 2]
+        ]
+        normalized_values = (point_values - point_values.min()) / (
+            point_values.max() - point_values.min()
+        )
 
         return normalized_values
 
@@ -176,7 +189,7 @@ class QtSurforama(QWidget):
 
     def get_faces(self):
         return self.mesh.faces
-    
+
     def slide_points(self, value):
         # Calculate the new positions of points along their normals
         shift = value / 10
@@ -185,17 +198,21 @@ class QtSurforama(QWidget):
         new_colors = self.get_point_colors(new_positions)
 
         vol_shape = self.volume.shape
-        
-        new_positions[:, 0] = np.clip(new_positions[:, 0], 0, vol_shape[2]-1)
-        new_positions[:, 1] = np.clip(new_positions[:, 1], 0, vol_shape[1]-1)
-        new_positions[:, 2] = np.clip(new_positions[:, 2], 0, vol_shape[0]-1)
-        
+
+        new_positions[:, 0] = np.clip(new_positions[:, 0], 0, vol_shape[2] - 1)
+        new_positions[:, 1] = np.clip(new_positions[:, 1], 0, vol_shape[1] - 1)
+        new_positions[:, 2] = np.clip(new_positions[:, 2], 0, vol_shape[0] - 1)
+
         self.color_values = new_colors
         self.vertices = new_positions
         self.update_mesh()
 
     def update_mesh(self):
-        self.surface_layer.data = (self.vertices, self.get_faces(), self.color_values)
+        self.surface_layer.data = (
+            self.vertices,
+            self.get_faces(),
+            self.color_values,
+        )
 
     def update_colors_based_on_sampling(self, value):
         spacing = 0.5
@@ -208,28 +225,47 @@ class QtSurforama(QWidget):
         for point, normal in zip(self.get_point_set(), self.normals):
             for depth in range(int(sampling_depth)):
                 sample_point = point + normal * spacing * depth
-                sample_point_clipped = np.clip(sample_point, [0, 0, 0], np.array(self.volume.shape) - 1).astype(int)
-                sample_value = self.volume[sample_point_clipped[0], sample_point_clipped[1], sample_point_clipped[2]]
+                sample_point_clipped = np.clip(
+                    sample_point, [0, 0, 0], np.array(self.volume.shape) - 1
+                ).astype(int)
+                sample_value = self.volume[
+                    sample_point_clipped[0],
+                    sample_point_clipped[1],
+                    sample_point_clipped[2],
+                ]
                 all_samples.append(sample_value)
 
         # Calculate min and max across all sampled values
         samples_min = np.min(all_samples)
         samples_max = np.max(all_samples)
 
-        # Normalize and update colors based on the mean value of samples for each point
+        # Normalize and update colors based on the mean value
+        # of samples for each point
         new_colors = np.zeros((len(self.get_point_set()),))
-        for i, (point, normal) in enumerate(zip(self.get_point_set(), self.normals)):
+        for i, (point, normal) in enumerate(
+            zip(self.get_point_set(), self.normals)
+        ):
             samples = []
             for depth in range(int(sampling_depth)):
                 sample_point = point + normal * spacing * depth
-                sample_point_clipped = np.clip(sample_point, [0, 0, 0], np.array(self.volume.shape) - 1).astype(int)
-                sample_value = self.volume[sample_point_clipped[0], sample_point_clipped[1], sample_point_clipped[2]]
+                sample_point_clipped = np.clip(
+                    sample_point, [0, 0, 0], np.array(self.volume.shape) - 1
+                ).astype(int)
+                sample_value = self.volume[
+                    sample_point_clipped[0],
+                    sample_point_clipped[1],
+                    sample_point_clipped[2],
+                ]
                 samples.append(sample_value)
 
-            # Normalize the mean of samples for this point using the min and max from all samples
+            # Normalize the mean of samples for this point using
+            # the min and max from all samples
             mean_value = np.mean(samples)
-            normalized_value = (mean_value - samples_min) / (
-                        samples_max - samples_min) if samples_max > samples_min else 0
+            normalized_value = (
+                (mean_value - samples_min) / (samples_max - samples_min)
+                if samples_max > samples_min
+                else 0
+            )
             new_colors[i] = normalized_value
 
         self.color_values = new_colors
@@ -240,7 +276,9 @@ class QtSurfacePicker(QGroupBox):
     ENABLE_BUTTON_TEXT = "Enable"
     DISABLE_BUTTON_TEXT = "Disable"
 
-    def __init__(self, surforama: QtSurforama, parent: Optional[QWidget] = None):
+    def __init__(
+        self, surforama: QtSurforama, parent: Optional[QWidget] = None
+    ):
         super().__init__("Pick on surface", parent=parent)
         self.surforama = surforama
         self.points_layer = None
@@ -281,26 +319,30 @@ class QtSurfacePicker(QGroupBox):
             self._disconnect_mouse_callbacks()
 
     def _initialize_points_layer(self):
-        self.points_layer = self.surforama.viewer.add_points(ndim=3, size=3, face_color="magenta")
+        self.points_layer = self.surforama.viewer.add_points(
+            ndim=3, size=3, face_color="magenta"
+        )
         self.points_layer.shading = "spherical"
         self.surforama.viewer.layers.selection = [self.surforama.surface_layer]
 
     def _connect_mouse_callbacks(self):
-        self.surforama.surface_layer.mouse_drag_callbacks.append(self._find_point_on_click)
+        self.surforama.surface_layer.mouse_drag_callbacks.append(
+            self._find_point_on_click
+        )
 
     def _disconnect_mouse_callbacks(self):
-        self.surforama.surface_layer.mouse_drag_callbacks.remove(self._find_point_on_click)
+        self.surforama.surface_layer.mouse_drag_callbacks.remove(
+            self._find_point_on_click
+        )
 
     def _find_point_on_click(self, layer, event):
         # if "Alt" not in event.modifiers:
         #    return
-
-        click_origin = event.position
         value = layer.get_value(
             event.position,
             view_direction=event.view_direction,
             dims_displayed=event.dims_displayed,
-            world=True
+            world=True,
         )
         if value is None:
             return
@@ -311,17 +353,20 @@ class QtSurfacePicker(QGroupBox):
 
         candidate_vertices = layer.data[1][triangle_index]
         candidate_points = layer.data[0][candidate_vertices]
-        _, intersection_coords = napari.utils.geometry.find_nearest_triangle_intersection(
-            event.position,
-            event.view_direction,
-            candidate_points[None, :, :]
+        (
+            _,
+            intersection_coords,
+        ) = napari.utils.geometry.find_nearest_triangle_intersection(
+            event.position, event.view_direction, candidate_points[None, :, :]
         )
 
         self.points_layer.add(np.atleast_2d(intersection_coords))
 
 
 class QtPointWriter(QGroupBox):
-    def __init__(self, surface_picker:QtSurfacePicker, parent: Optional[QWidget] = None):
+    def __init__(
+        self, surface_picker: QtSurfacePicker, parent: Optional[QWidget] = None
+    ):
         super().__init__("Save points", parent=parent)
         self.surface_picker = surface_picker
 
@@ -329,50 +374,37 @@ class QtPointWriter(QGroupBox):
         self.file_saving_widget = magicgui(
             self._write_star_file,
             output_path={"mode": "w"},
-            call_button="Save to star file"
+            call_button="Save to star file",
         )
 
         # make the layout
         self.setLayout(QVBoxLayout())
         self.layout().addWidget(self.file_saving_widget.native)
 
-    def _write_star_file(
-            self,
-            output_path: Path
-    ):
+    def _write_star_file(self, output_path: Path):
         points = self.surface_picker.points_layer.data
         points_table = pd.DataFrame(
             {
                 STAR_Z_COLUMN_NAME: points[:, 0],
                 STAR_Y_COLUMN_NAME: points[:, 1],
-                STAR_X_COLUMN_NAME: points[:, 2]
+                STAR_X_COLUMN_NAME: points[:, 2],
             }
         )
         starfile.write(points_table, output_path)
 
 
-        
 if __name__ == "__main__":
-    # obj_path = "/Users/kharrington/Data/membranorama/T17S1C3M4.obj"
-    # tomo_path = "/Users/kharrington/Data/membranorama/tomo17_load1G5L3_bin4_denoised_ctfcorr_scaled3.rec"
 
-    # obj_path = "/Users/kharrington/Data/membranorama/TS_004_dose-filt_lp50_bin8_membrain_model.obj"
-    # tomo_path = "/Users/kharrington/Data/membranorama/TS_004_dose-filt_lp50_bin8.rec"
-
-    obj_path = "/Users/kharrington/Data/membranorama/tomo_17_M10_grow1_1_mesh_data.obj"
-    tomo_path = "/Users/kharrington/Data/membranorama/tomo_17_M10_grow1_1_mesh_data.mrc"
+    obj_path = "tomo_17_M10_grow1_1_mesh_data.obj"
+    tomo_path = "tomo_17_M10_grow1_1_mesh_data.mrc"
 
     mrc = mrcfile.open(tomo_path)
     tomo_mrc = np.array(mrc.data)
 
-    # vertices, faces, values, normals = read_obj_file_and_compute_normals(obj_path, scale_factor=14.08)
     vertices, faces, values = read_obj_file_and_compute_normals(obj_path)
     surface = (vertices, faces, values)
-    # print("Vertices:", vertices)
-    # print("Faces:", faces)
 
     viewer = napari.Viewer(ndisplay=3)
-
     volume_layer = viewer.add_image(tomo_mrc)
     surface_layer = viewer.add_surface(surface)
 
@@ -385,6 +417,8 @@ if __name__ == "__main__":
 
     # Instantiate the widget and add it to Napari
     surforama_widget = QtSurforama(viewer, surface_layer, volume_layer)
-    viewer.window.add_dock_widget(surforama_widget, area='right', name='Surforama')
+    viewer.window.add_dock_widget(
+        surforama_widget, area="right", name="Surforama"
+    )
 
     napari.run()
