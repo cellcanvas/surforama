@@ -1,8 +1,7 @@
 from typing import Optional
 
-import napari
 import mrcfile
-import numpy as np
+import napari
 import typer
 from typing_extensions import Annotated
 
@@ -17,13 +16,11 @@ app = typer.Typer(
 @app.command()
 def launch_surforama(
     image_path: Annotated[
-        Optional[str],
-        typer.Argument(help="Path to the image to load.")
-    ]=None,
+        Optional[str], typer.Option(help="Path to the image to load.")
+    ] = None,
     mesh_path: Annotated[
-        Optional[str],
-        typer.Argument(help="Path to the mesh to load.")
-    ]=None
+        Optional[str], typer.Option(help="Path to the mesh to load.")
+    ] = None,
 ):
     viewer = napari.Viewer(ndisplay=3)
     if image_path is not None:
@@ -42,6 +39,8 @@ def launch_surforama(
 
     # Instantiate the widget and add it to Napari
     surforama_widget = QtSurforama(viewer, surface_layer, volume_layer)
-    viewer.window.add_dock_widget(surforama_widget, area='right', name='Surforama')
+    viewer.window.add_dock_widget(
+        surforama_widget, area="right", name="Surforama"
+    )
 
     napari.run()
