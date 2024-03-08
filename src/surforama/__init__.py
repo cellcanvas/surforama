@@ -1,6 +1,6 @@
 __version__ = "0.0.1"
-from .app import Surforama
+from .app import QtSurforama
 
 __all__ = (
-    "Surforama",
+    "QtSurforama",
 )
