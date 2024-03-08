@@ -1,8 +1,9 @@
 import numpy as np
 
-from surforama._widget import (
-    Surforama,
+from surforama.app import (
+    QtSurforama,
 )
+
 
 # capsys is a pytest fixture that captures stdout and stderr output streams
 def test_surforama(make_napari_viewer, capsys):
@@ -12,4 +13,4 @@ def test_surforama(make_napari_viewer, capsys):
     surface_layer = viewer.add_surface((np.random.random((100, 3)) * 20, (np.random.random((100, 3)) * 100).astype(int)))
 
     # create our widget, passing in the viewer
-    my_widget = Surforama(viewer, surface_layer, image_layer)
+    _ = QtSurforama(viewer, surface_layer, image_layer)
