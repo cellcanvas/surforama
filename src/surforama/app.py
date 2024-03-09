@@ -398,7 +398,7 @@ if __name__ == "__main__":
     obj_path = "tomo_17_M10_grow1_1_mesh_data.obj"
     tomo_path = "tomo_17_M10_grow1_1_mesh_data.mrc"
 
-    mrc = mrcfile.open(tomo_path)
+    mrc = mrcfile.open(tomo_path, permissive=True)
     tomo_mrc = np.array(mrc.data)
 
     vertices, faces, values = read_obj_file_and_compute_normals(obj_path)
