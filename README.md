@@ -13,6 +13,13 @@ pip install surforama
 ```
 
 ## usage
+### launch with demo data
+If you'd like to test surforama out, you can launch surforama with demo data:
+
+```bash
+surforama --demo
+```
+
 ### launch without data
 You can launch surforama using the command line interface. After you have installed surforama, you can launch it with the following command in your terminal:
 
