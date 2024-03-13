@@ -1,11 +1,7 @@
 from typing import Optional
 
-import mrcfile
-import napari
 import typer
 from typing_extensions import Annotated
-
-from surforama.app import QtSurforama, read_obj_file_and_compute_normals
 
 app = typer.Typer(
     help="Surforama: wiew tomogram densities on a surface.",
@@ -21,21 +17,62 @@ def launch_surforama(
     mesh_path: Annotated[
         Optional[str], typer.Option(help="Path to the mesh to load.")
     ] = None,
+    demo: Annotated[
+        bool, typer.Option("--demo", help="launch surforama with sample data")
+    ] = False,
 ):
-    viewer = napari.Viewer(ndisplay=3)
-    if image_path is not None:
-        # load the image if the path was passed
-        image = mrcfile.read(image_path)
-        volume_layer = viewer.add_image(image)
-    else:
-        volume_layer = None
+    if demo and (image_path is not None or mesh_path is not None):
+        raise ValueError(
+            "Please do not specify an image/mesh path when launching in demo mode."
+        )
 
-    if mesh_path is not None:
-        # load the mesh if a path was passed
-        mesh_data = read_obj_file_and_compute_normals(mesh_path)
+    # delay imports
+    import mrcfile
+    import napari
+
+    from surforama.app import QtSurforama, read_obj_file_and_compute_normals
+
+    viewer = napari.Viewer(ndisplay=3)
+
+    if demo:
+        from surforama.data._datasets import thylakoid_membrane
+
+        # fetch the data
+        tomogram, mesh_data = thylakoid_membrane()
+
+        # Add the data to the viewer
+        volume_layer = viewer.add_image(
+            tomogram, blending="translucent", depiction="plane"
+        )
         surface_layer = viewer.add_surface(mesh_data)
+
+        # set up the slicing plane position
+        volume_layer.plane = {"normal": [1, 0, 0], "position": [66, 187, 195]}
+
+        # set up the camera
+        viewer.camera.center = (64.0, 124.0, 127.5)
+        viewer.camera.zoom = 3.87
+        viewer.camera.angles = (
+            -5.401480002668876,
+            -0.16832643131442776,
+            160.28901483338126,
+        )
+
     else:
-        surface_layer = None
+
+        if image_path is not None:
+            # load the image if the path was passed
+            image = mrcfile.read(image_path)
+            volume_layer = viewer.add_image(image)
+        else:
+            volume_layer = None
+
+        if mesh_path is not None:
+            # load the mesh if a path was passed
+            mesh_data = read_obj_file_and_compute_normals(mesh_path)
+            surface_layer = viewer.add_surface(mesh_data)
+        else:
+            surface_layer = None
 
     # Instantiate the widget and add it to Napari
     surforama_widget = QtSurforama(viewer, surface_layer, volume_layer)
