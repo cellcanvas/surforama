@@ -17,6 +17,7 @@ def read_obj_file(file_path):
     verts = mesh.vertices
     faces = mesh.faces
 
+    # trimesh swaps coordinate axes
     verts = verts[:, [2, 1, 0]]
 
     values = np.ones((len(verts),))
