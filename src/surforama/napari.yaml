@@ -9,6 +9,13 @@ contributions:
     - id: surforama.make_widget
       python_name: surforama:QtSurforama
       title: Make Surforama
+    - id: surforama.thylakoid
+      python_name: surforama.data._datasets:_thylakoid_membrane_sample_data_plugin
+      title: Thylakoid membrane
+  sample_data:
+    - command: surforama.thylakoid
+      key: thylakoid
+      display_name: thylakoid membrane
   widgets:
     - command: surforama.make_widget
       display_name: Surforama
