@@ -35,6 +35,7 @@ def launch_surforama(
     viewer = napari.Viewer(ndisplay=3)
 
     if demo:
+        # set up the viewer in demo mode
         from surforama.data._datasets import thylakoid_membrane
 
         # fetch the data
@@ -59,7 +60,7 @@ def launch_surforama(
         )
 
     else:
-
+        # set up the viewer with the user-requested images
         if image_path is not None:
             # load the image if the path was passed
             image = mrcfile.read(image_path)
