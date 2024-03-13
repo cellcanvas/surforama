@@ -5,7 +5,7 @@ import numpy as np
 import pooch
 from napari.types import LayerDataTuple
 
-from surforama.app import read_obj_file_and_compute_normals
+from surforama.io.mesh import read_obj_file
 
 _data_registry = pooch.create(
     path=pooch.os_cache("mypackage"),
@@ -39,7 +39,7 @@ def thylakoid_membrane() -> (
     mesh_path = _data_registry.fetch(
         "S1_M3b_StII_grow2_1_mesh_data.obj", progressbar=True
     )
-    mesh_data = read_obj_file_and_compute_normals(mesh_path)
+    mesh_data = read_obj_file(mesh_path)
 
     return tomogram, mesh_data
 

@@ -30,7 +30,8 @@ def launch_surforama(
     import mrcfile
     import napari
 
-    from surforama.app import QtSurforama, read_obj_file_and_compute_normals
+    from surforama.app import QtSurforama
+    from surforama.io.mesh import read_obj_file
 
     viewer = napari.Viewer(ndisplay=3)
 
@@ -70,7 +71,7 @@ def launch_surforama(
 
         if mesh_path is not None:
             # load the mesh if a path was passed
-            mesh_data = read_obj_file_and_compute_normals(mesh_path)
+            mesh_data = read_obj_file(mesh_path)
             surface_layer = viewer.add_surface(mesh_data)
         else:
             surface_layer = None
