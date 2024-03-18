@@ -12,6 +12,7 @@ from napari.layers import Image, Surface
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
     QGroupBox,
+    QHBoxLayout,
     QLabel,
     QPushButton,
     QSlider,
@@ -58,6 +59,11 @@ class QtSurforama(QWidget):
         self.slider.setValue(0)
         self.slider.valueChanged.connect(self.slide_points)
         self.slider.setVisible(False)
+        self.slider_value = QLabel("0 vx", self)
+
+        self.sliderLayout = QHBoxLayout()
+        self.sliderLayout.addWidget(self.slider)
+        self.sliderLayout.addWidget(self.slider_value)
 
         # New slider for sampling depth
 
@@ -70,6 +76,11 @@ class QtSurforama(QWidget):
             self.update_colors_based_on_sampling
         )
         self.sampling_depth_slider.setVisible(False)
+        self.sampling_depth_value = QLabel("10", self)
+
+        self.sampling_depth_sliderLayout = QHBoxLayout()
+        self.sampling_depth_sliderLayout.addWidget(self.sampling_depth_slider)
+        self.sampling_depth_sliderLayout.addWidget(self.sampling_depth_value)
 
         # make the picking widget
         self.picking_widget = QtSurfacePicker(surforama=self, parent=self)
@@ -85,9 +96,9 @@ class QtSurforama(QWidget):
         self.setLayout(QVBoxLayout())
         self.layout().addWidget(self._layer_selection_widget.native)
         self.layout().addWidget(QLabel("Extend/contract surface"))
-        self.layout().addWidget(self.slider)
+        self.layout().addLayout(self.sliderLayout)
         self.layout().addWidget(QLabel("Surface Thickness"))
-        self.layout().addWidget(self.sampling_depth_slider)
+        self.layout().addLayout(self.sampling_depth_sliderLayout)
         self.layout().addWidget(self.picking_widget)
         self.layout().addWidget(self.point_writer_widget)
         self.layout().addStretch()
@@ -185,6 +196,7 @@ class QtSurforama(QWidget):
         self.color_values = new_colors
         self.vertices = new_positions
         self.update_mesh()
+        self.slider_value.setText(f"{shift} vx")
 
     def update_mesh(self):
         self.surface_layer.data = (
@@ -249,6 +261,7 @@ class QtSurforama(QWidget):
 
         self.color_values = new_colors
         self.update_mesh()
+        self.sampling_depth_value.setText(f"{value}")
 
 
 class QtSurfacePicker(QGroupBox):
