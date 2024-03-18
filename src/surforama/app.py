@@ -157,10 +157,10 @@ class QtSurforama(QWidget):
         point_values = self.volume[
             point_indices[:, 0], point_indices[:, 1], point_indices[:, 2]
         ]
-        normalized_values = (point_values - point_values.min()) / (
-            point_values.max() - point_values.min()
-        )
 
+        normalized_values = (point_values - point_values.min()) / (
+            point_values.max() - point_values.min() + np.finfo(float).eps
+        )
         return normalized_values
 
     def get_point_set(self):
