@@ -8,7 +8,7 @@ from napari.types import LayerDataTuple
 from surforama.io.mesh import read_obj_file
 
 _data_registry = pooch.create(
-    path=pooch.os_cache("mypackage"),
+    path=pooch.os_cache("cellcanvas"),
     base_url="doi:10.5281/zenodo.10814409",
     registry={
         "S1_M3b_StII_grow2_1_mesh_data.mrc": "md5:a6e34bbf4edc767aa6c2c854c81c9c97",
