@@ -33,7 +33,7 @@ def thylakoid_membrane() -> (
     tomogram_path = _data_registry.fetch(
         "S1_M3b_StII_grow2_1_mesh_data.mrc", progressbar=True
     )
-    tomogram = mrcfile.read(tomogram_path)
+    tomogram = mrcfile.read(tomogram_path).astype(float)
 
     # get the mesh
     mesh_path = _data_registry.fetch(
