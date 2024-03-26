@@ -20,12 +20,12 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
+from surforama.constants import (
+    STAR_X_COLUMN_NAME,
+    STAR_Y_COLUMN_NAME,
+    STAR_Z_COLUMN_NAME,
+)
 from surforama.io.mesh import read_obj_file
-
-# column names for the starfile
-STAR_X_COLUMN_NAME = "rlnCoordinateX"
-STAR_Y_COLUMN_NAME = "rlnCoordinateY"
-STAR_Z_COLUMN_NAME = "rlnCoordinateZ"
 
 
 class QtSurforama(QWidget):
