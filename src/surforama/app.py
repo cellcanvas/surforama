@@ -21,12 +21,19 @@ from qtpy.QtWidgets import (
 )
 
 from surforama.constants import (
+    NAPARI_NORMAL_0,
+    NAPARI_NORMAL_1,
+    NAPARI_NORMAL_2,
+    NAPARI_UP_0,
+    NAPARI_UP_1,
+    NAPARI_UP_2,
+    ROTATION,
     STAR_X_COLUMN_NAME,
     STAR_Y_COLUMN_NAME,
     STAR_Z_COLUMN_NAME,
 )
-from surforama.geometry import rotate_around_vector
 from surforama.io import read_obj_file
+from surforama.utils.geometry import rotate_around_vector
 
 
 class QtSurforama(QWidget):
@@ -330,7 +337,7 @@ class QtSurfacePicker(QGroupBox):
             self._disconnect_mouse_callbacks()
 
     def _update_rotation(self, value):
-        print(value)
+        """Callback function to update the rotation of the selected points."""
         selected_points = list(self.points_layer.selected_data)
         self.rotations[selected_points] = value
 
@@ -393,6 +400,7 @@ class QtSurfacePicker(QGroupBox):
             # if the click did not intersect the mesh, don't do anything
             return
 
+        # get the intersection point
         candidate_vertices = layer.data[1][triangle_index]
         candidate_points = layer.data[0][candidate_vertices]
         (
@@ -401,8 +409,6 @@ class QtSurfacePicker(QGroupBox):
         ) = napari.utils.geometry.find_nearest_triangle_intersection(
             event.position, event.view_direction, candidate_points[None, :, :]
         )
-
-        self.points_layer.add(np.atleast_2d(intersection_coords))
 
         # get normal vector of intersected triangle
         mesh = self.surforama.mesh
@@ -434,10 +440,19 @@ class QtSurfacePicker(QGroupBox):
         )
 
         # colors were being reset - this might not be necessary
-        self.normal_vectors_layer.edge_color = "cornflowerblue"
+        self.normal_vectors_layer.edge_color = "purple"
         self.up_vectors_layer.edge_color = "orange"
 
         # store the data
+        feature_table = self.points_layer._feature_table
+        table_defaults = feature_table.defaults
+        table_defaults[NAPARI_NORMAL_0] = normal_vector[0]
+        table_defaults[NAPARI_NORMAL_1] = normal_vector[1]
+        table_defaults[NAPARI_NORMAL_2] = normal_vector[2]
+        table_defaults[NAPARI_UP_0] = up_vector[0]
+        table_defaults[NAPARI_UP_1] = up_vector[1]
+        table_defaults[NAPARI_UP_2] = up_vector[2]
+        table_defaults[ROTATION] = 0
         self.normal_vectors = np.concatenate(
             (self.normal_vectors, np.atleast_2d(normal_vector))
         )
@@ -445,6 +460,8 @@ class QtSurfacePicker(QGroupBox):
             (self.up_vectors, np.atleast_2d(up_vector))
         )
         self.rotations = np.append(self.rotations, 0)
+
+        self.points_layer.add(np.atleast_2d(intersection_coords))
 
 
 class QtPointWriter(QGroupBox):
