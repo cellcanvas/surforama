@@ -25,7 +25,8 @@ from surforama.constants import (
     STAR_Y_COLUMN_NAME,
     STAR_Z_COLUMN_NAME,
 )
-from surforama.io.mesh import read_obj_file
+from surforama.geometry import rotate_around_vector
+from surforama.io import read_obj_file
 
 
 class QtSurforama(QWidget):
@@ -274,6 +275,13 @@ class QtSurfacePicker(QGroupBox):
         super().__init__("Pick on surface", parent=parent)
         self.surforama = surforama
         self.points_layer = None
+        self.normal_vectors_layer = None
+
+        # initialize orientation data
+        # todo store elsewhere (e.g., layer features)
+        self.normal_vectors = np.empty((0, 3))
+        self.up_vectors = np.empty((0, 3))
+        self.rotations = np.empty((0,))
 
         # enable state
         self.enabled = False
@@ -282,9 +290,18 @@ class QtSurfacePicker(QGroupBox):
         self.enable_button = QPushButton(self.ENABLE_BUTTON_TEXT)
         self.enable_button.clicked.connect(self._on_enable_button_pressed)
 
+        # make the rotation slider
+        self.rotation_slider = QSlider()
+        self.rotation_slider.setOrientation(Qt.Horizontal)
+        self.rotation_slider.setMinimum(-180)
+        self.rotation_slider.setMaximum(180)
+        self.rotation_slider.setValue(0)
+        self.rotation_slider.valueChanged.connect(self._update_rotation)
+
         # make the layout
         self.setLayout(QVBoxLayout())
         self.layout().addWidget(self.enable_button)
+        self.layout().addWidget(self.rotation_slider)
 
     def _on_enable_button_pressed(self, event):
         # toggle enabled
@@ -300,6 +317,8 @@ class QtSurfacePicker(QGroupBox):
 
             if self.points_layer is None:
                 self._initialize_points_layer()
+            if self.normal_vectors_layer is None:
+                self._initialize_vectors_layers()
             self.points_layer.visible = True
 
         self._on_enable_change()
@@ -310,11 +329,42 @@ class QtSurfacePicker(QGroupBox):
         else:
             self._disconnect_mouse_callbacks()
 
+    def _update_rotation(self, value):
+        print(value)
+        selected_points = list(self.points_layer.selected_data)
+        self.rotations[selected_points] = value
+
+        rotation_radians = value * (np.pi / 180)
+
+        old_up_vector = self.up_vectors[selected_points]
+        normal_vector = self.normal_vectors[selected_points]
+
+        new_up_vector = rotate_around_vector(
+            rotate_around=normal_vector,
+            to_rotate=old_up_vector,
+            angle=rotation_radians,
+        )
+
+        self.up_vectors_layer.data[selected_points, 1, :] = new_up_vector
+        self.up_vectors_layer.refresh()
+
     def _initialize_points_layer(self):
         self.points_layer = self.surforama.viewer.add_points(
             ndim=3, size=3, face_color="magenta"
         )
         self.points_layer.shading = "spherical"
+        self.surforama.viewer.layers.selection = [self.surforama.surface_layer]
+
+    def _initialize_vectors_layers(self):
+        self.normal_vectors_layer = self.surforama.viewer.add_vectors(
+            ndim=3,
+            length=10,
+            edge_color="cornflowerblue",
+            name="surface normals",
+        )
+        self.up_vectors_layer = self.surforama.viewer.add_vectors(
+            ndim=3, length=10, edge_color="orange", name="up vectors"
+        )
         self.surforama.viewer.layers.selection = [self.surforama.surface_layer]
 
     def _connect_mouse_callbacks(self):
@@ -354,6 +404,48 @@ class QtSurfacePicker(QGroupBox):
 
         self.points_layer.add(np.atleast_2d(intersection_coords))
 
+        # get normal vector of intersected triangle
+        mesh = self.surforama.mesh
+        normal_vector = mesh.face_normals[triangle_index]
+
+        # create the orientation coordinate system
+        up_vector = np.cross(
+            normal_vector, [1, 0, 0]
+        )  # todo add check if normal is parallel
+
+        # make the vector data for display
+        new_normal_vector_data = np.zeros((1, 2, 3))
+        new_normal_vector_data[:, 0, :] = intersection_coords
+        new_normal_vector_data[:, 1, :] = normal_vector
+
+        new_up_vector_data = np.zeros((1, 2, 3))
+        new_up_vector_data[:, 0, :] = intersection_coords
+        new_up_vector_data[:, 1, :] = up_vector
+
+        # add the vector to the layer
+        old_normal_vectors_data = self.normal_vectors_layer.data
+        self.normal_vectors_layer.data = np.concatenate(
+            (old_normal_vectors_data, new_normal_vector_data)
+        )
+
+        old_up_vectors_data = self.up_vectors_layer.data
+        self.up_vectors_layer.data = np.concatenate(
+            (old_up_vectors_data, new_up_vector_data)
+        )
+
+        # colors were being reset - this might not be necessary
+        self.normal_vectors_layer.edge_color = "cornflowerblue"
+        self.up_vectors_layer.edge_color = "orange"
+
+        # store the data
+        self.normal_vectors = np.concatenate(
+            (self.normal_vectors, np.atleast_2d(normal_vector))
+        )
+        self.up_vectors = np.concatenate(
+            (self.up_vectors, np.atleast_2d(up_vector))
+        )
+        self.rotations = np.append(self.rotations, 0)
+
 
 class QtPointWriter(QGroupBox):
     def __init__(
@@ -387,8 +479,8 @@ class QtPointWriter(QGroupBox):
 
 if __name__ == "__main__":
 
-    obj_path = "tomo_17_M10_grow1_1_mesh_data.obj"
-    tomo_path = "tomo_17_M10_grow1_1_mesh_data.mrc"
+    obj_path = "../../examples/tomo_17_M10_grow1_1_mesh_data.obj"
+    tomo_path = "../../examples/tomo_17_M10_grow1_1_mesh_data.mrc"
 
     mrc = mrcfile.open(tomo_path, permissive=True)
     tomo_mrc = np.array(mrc.data)
