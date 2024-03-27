@@ -34,6 +34,10 @@ from surforama.constants import (
 )
 from surforama.io import read_obj_file
 from surforama.utils.geometry import rotate_around_vector
+from surforama.utils.napari import (
+    update_rotations_on_points_layer,
+    vectors_data_from_points_features,
+)
 
 
 class QtSurforama(QWidget):
@@ -342,6 +346,7 @@ class QtSurfacePicker(QGroupBox):
         self.rotations[selected_points] = value
 
         rotation_radians = value * (np.pi / 180)
+        new_rotations = rotation_radians * np.ones(len(selected_points))
 
         old_up_vector = self.up_vectors[selected_points]
         normal_vector = self.normal_vectors[selected_points]
@@ -350,6 +355,12 @@ class QtSurfacePicker(QGroupBox):
             rotate_around=normal_vector,
             to_rotate=old_up_vector,
             angle=rotation_radians,
+        )
+
+        update_rotations_on_points_layer(
+            points_layer=self.points_layer,
+            point_index=selected_points,
+            rotations=new_rotations,
         )
 
         self.up_vectors_layer.data[selected_points, 1, :] = new_up_vector
@@ -419,30 +430,6 @@ class QtSurfacePicker(QGroupBox):
             normal_vector, [1, 0, 0]
         )  # todo add check if normal is parallel
 
-        # make the vector data for display
-        new_normal_vector_data = np.zeros((1, 2, 3))
-        new_normal_vector_data[:, 0, :] = intersection_coords
-        new_normal_vector_data[:, 1, :] = normal_vector
-
-        new_up_vector_data = np.zeros((1, 2, 3))
-        new_up_vector_data[:, 0, :] = intersection_coords
-        new_up_vector_data[:, 1, :] = up_vector
-
-        # add the vector to the layer
-        old_normal_vectors_data = self.normal_vectors_layer.data
-        self.normal_vectors_layer.data = np.concatenate(
-            (old_normal_vectors_data, new_normal_vector_data)
-        )
-
-        old_up_vectors_data = self.up_vectors_layer.data
-        self.up_vectors_layer.data = np.concatenate(
-            (old_up_vectors_data, new_up_vector_data)
-        )
-
-        # colors were being reset - this might not be necessary
-        self.normal_vectors_layer.edge_color = "purple"
-        self.up_vectors_layer.edge_color = "orange"
-
         # store the data
         feature_table = self.points_layer._feature_table
         table_defaults = feature_table.defaults
@@ -462,6 +449,17 @@ class QtSurfacePicker(QGroupBox):
         self.rotations = np.append(self.rotations, 0)
 
         self.points_layer.add(np.atleast_2d(intersection_coords))
+
+        # update the vectors
+        normal_data, up_data = vectors_data_from_points_features(
+            self.points_layer
+        )
+        self.normal_vectors_layer.data = normal_data
+        self.up_vectors_layer.data = up_data
+
+        # colors were being reset - this might not be necessary
+        self.normal_vectors_layer.edge_color = "purple"
+        self.up_vectors_layer.edge_color = "orange"
 
 
 class QtPointWriter(QGroupBox):
