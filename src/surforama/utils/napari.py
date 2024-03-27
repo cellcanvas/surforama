@@ -66,6 +66,24 @@ def vectors_data_from_points_features(
 def get_vectors_data_from_points_layer(
     points_layer: Points, point_index: Union[int, List[int]]
 ) -> Tuple[np.ndarray, np.ndarray, Union[float, np.ndarray]]:
+    """Get the point vectors from the points features table.
+
+    Parameters
+    ----------
+    points_layer : Points
+        The points layer to get the vectors from.
+    point_index : Union[int, List[int]]
+        The indices of the points to get the vectors for.
+
+    Returns
+    -------
+    selected_normal_vectors : np.ndarray
+        The normal vectors from the selected points.
+    selected_up_vectors : np.ndarray
+        The up-vectors from the selected points.
+    selected_rotations : np.ndarray
+        The rotations from the selected points.
+    """
     feature_table = points_layer.features
 
     # get the normal vector
@@ -82,9 +100,9 @@ def get_vectors_data_from_points_layer(
 
     # get the rotation
     rotations = feature_table[ROTATION].to_numpy()
-    selected_rotation = rotations[point_index]
+    selected_rotations = rotations[point_index]
 
-    return selected_normal_vector, selected_up_vector, selected_rotation
+    return selected_normal_vector, selected_up_vector, selected_rotations
 
 
 def update_vectors_data_on_points_layer(
@@ -94,6 +112,21 @@ def update_vectors_data_on_points_layer(
     up_vectors: np.ndarray,
     rotations: np.ndarray,
 ):
+    """Update all fields in the vectors data on a points layer.
+
+    Parameters
+    ----------
+    points_layer : Points
+        The points layer to be updated.
+    point_index : Union[int, List[int]]
+        The indices of the points to be updated.
+    normal_vectors : np.ndarray
+        (n, 3) array of the new normal vectors.
+    up_vectors : np.ndarray
+        (n, 3) array of the new up vectors.
+    rotations : np.ndarray
+        (n,) array of the new rotation angles in radians.
+    """
     if isinstance(point_index, int):
         point_index = [point_index]
 
@@ -129,7 +162,18 @@ def update_rotations_on_points_layer(
     points_layer: Points,
     point_index: Union[int, List[int]],
     rotations: np.ndarray,
-):
+) -> None:
+    """Update the rotations for selected points.
+
+    Parameters
+    ----------
+    points_layer : Points
+        The points layer to be updated.
+    point_index : Union[int, List[int]]
+        The indices of the points to update the rotations on.
+    rotations : np.ndarray
+        The new rotations to set.
+    """
     if isinstance(point_index, int):
         point_index = [point_index]
 
