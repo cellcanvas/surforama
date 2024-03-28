@@ -41,9 +41,11 @@ def convert_mask_to_mesh(
     mask : np.ndarray
         A binary mask.
     barycentric_area : float, optional
-        The area of each triangle in the mesh, by default 1.0
+        The target barycentric area of each vertex in the mesh,
+        by default 1.0
     smoothing : int, optional
-        Number of iterations for mesh smoothing, by default 10
+        Number of iterations for Laplacian mesh smoothing,
+        by default 10
     """
     verts, faces, _, _ = marching_cubes(
         volume=mask,
