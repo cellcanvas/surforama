@@ -19,7 +19,6 @@ from qtpy.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from scipy.ndimage import map_coordinates
 
 from surforama.io.mesh import read_obj_file
 
@@ -164,10 +163,12 @@ class QtSurforama(QWidget):
         ]
 
     def get_point_colors(self, points):
-        # point_indices = points.astype(int)
-        point_values = map_coordinates(
-            self.volume, points.T, order=1, mode="nearest"
-        )
+        point_indices = points.astype(int)
+
+        point_values = self.volume[
+            point_indices[:, 0], point_indices[:, 1], point_indices[:, 2]
+        ]
+
         normalized_values = (point_values - point_values.min()) / (
             point_values.max() - point_values.min() + np.finfo(float).eps
         )
