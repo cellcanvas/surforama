@@ -18,6 +18,9 @@ contributions:
     - id: surforama.mesh_reader
       python_name: surforama.io._reader_plugin:mesh_reader_plugin
       title: Mesh reader
+    - id: surforama.star_reader
+      python_name: surforama.io._reader_plugin:star_reader_plugin
+      title: star reader
   sample_data:
     - command: surforama.thylakoid
       key: thylakoid
@@ -29,6 +32,10 @@ contributions:
     - command: surforama.mesh_reader
       filename_patterns:
         - '*.obj'
+      accepts_directories: false
+    - command: surforama.star_reader
+      filename_patterns:
+      - '*.star'
       accepts_directories: false
   widgets:
     - command: surforama.make_widget
