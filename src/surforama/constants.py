@@ -2,6 +2,9 @@
 STAR_X_COLUMN_NAME = "rlnCoordinateX"
 STAR_Y_COLUMN_NAME = "rlnCoordinateY"
 STAR_Z_COLUMN_NAME = "rlnCoordinateZ"
+STAR_ROTATION_0 = "rlnAngleRot"
+STAR_ROTATION_1 = "rlnAngleTilt"
+STAR_ROTATION_2 = "rlnAnglePsi"
 
 
 # column names for napari points layer for oriented particles
