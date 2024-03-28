@@ -1,6 +1,7 @@
 from typing import List, Tuple, Union
 
 import numpy as np
+import pandas as pd
 from napari.layers import Points
 
 from surforama.constants import (
@@ -15,7 +16,7 @@ from surforama.constants import (
 from surforama.utils.geometry import rotate_around_vector
 
 
-def vectors_data_from_points_features(
+def vectors_data_from_points_layer(
     points_layer: Points,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Get the vectors data for normal and up vectors from an oriented points layer.
@@ -35,17 +36,39 @@ def vectors_data_from_points_features(
 
     # get the point data
     point_coordinates = points_layer.data
+    features_table = points_layer.features
+    return vectors_data_from_points_data(
+        point_coordinates=point_coordinates, features_table=features_table
+    )
 
-    feature_table = points_layer.features
 
+def vectors_data_from_points_data(
+    point_coordinates: np.ndarray, features_table: pd.DataFrame
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Get the vectors data for normal and up vectors from an oriented points layer.
+
+    Parameters
+    ----------
+    point_coordinates : np.ndarray
+        (n, 3) array of the coordinates of each point.
+    features_table : pd.DataFrame
+        The layer features table.
+
+    Returns
+    -------
+    normals_data : np.ndarray
+        The Vectors layer data for the normal vectors
+    up_data : np.ndarray
+        The Vectors layer data for the up vectors
+    """
     # get the vectors
-    normal_vectors = feature_table[
+    normal_vectors = features_table[
         [NAPARI_NORMAL_0, NAPARI_NORMAL_1, NAPARI_NORMAL_2]
     ].to_numpy()
-    up_vectors = feature_table[
+    up_vectors = features_table[
         [NAPARI_UP_0, NAPARI_UP_1, NAPARI_UP_2]
     ].to_numpy()
-    rotations = feature_table[ROTATION].to_numpy()
+    rotations = features_table[ROTATION].to_numpy()
     rotated_up_vectors = rotate_around_vector(
         rotate_around=normal_vectors, to_rotate=up_vectors, angle=rotations
     )

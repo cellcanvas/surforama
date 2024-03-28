@@ -4,8 +4,6 @@ from typing import List, Optional
 import mrcfile
 import napari
 import numpy as np
-import pandas as pd
-import starfile
 import trimesh
 from magicgui import magicgui
 from napari.layers import Image, Surface
@@ -28,15 +26,13 @@ from surforama.constants import (
     NAPARI_UP_1,
     NAPARI_UP_2,
     ROTATION,
-    STAR_X_COLUMN_NAME,
-    STAR_Y_COLUMN_NAME,
-    STAR_Z_COLUMN_NAME,
 )
 from surforama.io import read_obj_file
+from surforama.io.star import oriented_points_to_star_file
 from surforama.utils.geometry import rotate_around_vector
 from surforama.utils.napari import (
     update_rotations_on_points_layer,
-    vectors_data_from_points_features,
+    vectors_data_from_points_layer,
 )
 
 
@@ -451,7 +447,7 @@ class QtSurfacePicker(QGroupBox):
         self.points_layer.add(np.atleast_2d(intersection_coords))
 
         # update the vectors
-        normal_data, up_data = vectors_data_from_points_features(
+        normal_data, up_data = vectors_data_from_points_layer(
             self.points_layer
         )
         self.normal_vectors_layer.data = normal_data
@@ -481,15 +477,10 @@ class QtPointWriter(QGroupBox):
         self.layout().addWidget(self.file_saving_widget.native)
 
     def _write_star_file(self, output_path: Path):
-        points = self.surface_picker.points_layer.data
-        points_table = pd.DataFrame(
-            {
-                STAR_Z_COLUMN_NAME: points[:, 0],
-                STAR_Y_COLUMN_NAME: points[:, 1],
-                STAR_X_COLUMN_NAME: points[:, 2],
-            }
+        oriented_points_to_star_file(
+            points_layer=self.surface_picker.points_layer,
+            output_path=output_path,
         )
-        starfile.write(points_table, output_path)
 
 
 if __name__ == "__main__":
