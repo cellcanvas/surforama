@@ -64,7 +64,7 @@ def launch_surforama(
         # set up the viewer with the user-requested images
         if image_path is not None:
             # load the image if the path was passed
-            image = mrcfile.read(image_path)
+            image = mrcfile.read(image_path).astype(float)
             volume_layer = viewer.add_image(image)
         else:
             volume_layer = None

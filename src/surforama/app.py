@@ -4,14 +4,13 @@ from typing import List, Optional
 import mrcfile
 import napari
 import numpy as np
-import pandas as pd
-import starfile
 import trimesh
 from magicgui import magicgui
 from napari.layers import Image, Surface
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
     QGroupBox,
+    QHBoxLayout,
     QLabel,
     QPushButton,
     QSlider,
@@ -19,12 +18,22 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
-from surforama.io.mesh import read_obj_file
-
-# column names for the starfile
-STAR_X_COLUMN_NAME = "rlnCoordinateX"
-STAR_Y_COLUMN_NAME = "rlnCoordinateY"
-STAR_Z_COLUMN_NAME = "rlnCoordinateZ"
+from surforama.constants import (
+    NAPARI_NORMAL_0,
+    NAPARI_NORMAL_1,
+    NAPARI_NORMAL_2,
+    NAPARI_UP_0,
+    NAPARI_UP_1,
+    NAPARI_UP_2,
+    ROTATION,
+)
+from surforama.io import read_obj_file
+from surforama.io.star import oriented_points_to_star_file
+from surforama.utils.geometry import rotate_around_vector
+from surforama.utils.napari import (
+    update_rotations_on_points_layer,
+    vectors_data_from_points_layer,
+)
 
 
 class QtSurforama(QWidget):
@@ -58,6 +67,11 @@ class QtSurforama(QWidget):
         self.slider.setValue(0)
         self.slider.valueChanged.connect(self.slide_points)
         self.slider.setVisible(False)
+        self.slider_value = QLabel("0 vx", self)
+
+        self.sliderLayout = QHBoxLayout()
+        self.sliderLayout.addWidget(self.slider)
+        self.sliderLayout.addWidget(self.slider_value)
 
         # New slider for sampling depth
 
@@ -70,6 +84,11 @@ class QtSurforama(QWidget):
             self.update_colors_based_on_sampling
         )
         self.sampling_depth_slider.setVisible(False)
+        self.sampling_depth_value = QLabel("10", self)
+
+        self.sampling_depth_sliderLayout = QHBoxLayout()
+        self.sampling_depth_sliderLayout.addWidget(self.sampling_depth_slider)
+        self.sampling_depth_sliderLayout.addWidget(self.sampling_depth_value)
 
         # make the picking widget
         self.picking_widget = QtSurfacePicker(surforama=self, parent=self)
@@ -85,9 +104,9 @@ class QtSurforama(QWidget):
         self.setLayout(QVBoxLayout())
         self.layout().addWidget(self._layer_selection_widget.native)
         self.layout().addWidget(QLabel("Extend/contract surface"))
-        self.layout().addWidget(self.slider)
+        self.layout().addLayout(self.sliderLayout)
         self.layout().addWidget(QLabel("Surface Thickness"))
-        self.layout().addWidget(self.sampling_depth_slider)
+        self.layout().addLayout(self.sampling_depth_sliderLayout)
         self.layout().addWidget(self.picking_widget)
         self.layout().addWidget(self.point_writer_widget)
         self.layout().addStretch()
@@ -157,10 +176,10 @@ class QtSurforama(QWidget):
         point_values = self.volume[
             point_indices[:, 0], point_indices[:, 1], point_indices[:, 2]
         ]
-        normalized_values = (point_values - point_values.min()) / (
-            point_values.max() - point_values.min()
-        )
 
+        normalized_values = (point_values - point_values.min()) / (
+            point_values.max() - point_values.min() + np.finfo(float).eps
+        )
         return normalized_values
 
     def get_point_set(self):
@@ -185,6 +204,7 @@ class QtSurforama(QWidget):
         self.color_values = new_colors
         self.vertices = new_positions
         self.update_mesh()
+        self.slider_value.setText(f"{shift} vx")
 
     def update_mesh(self):
         self.surface_layer.data = (
@@ -249,6 +269,7 @@ class QtSurforama(QWidget):
 
         self.color_values = new_colors
         self.update_mesh()
+        self.sampling_depth_value.setText(f"{value}")
 
 
 class QtSurfacePicker(QGroupBox):
@@ -261,6 +282,13 @@ class QtSurfacePicker(QGroupBox):
         super().__init__("Pick on surface", parent=parent)
         self.surforama = surforama
         self.points_layer = None
+        self.normal_vectors_layer = None
+
+        # initialize orientation data
+        # todo store elsewhere (e.g., layer features)
+        self.normal_vectors = np.empty((0, 3))
+        self.up_vectors = np.empty((0, 3))
+        self.rotations = np.empty((0,))
 
         # enable state
         self.enabled = False
@@ -269,9 +297,18 @@ class QtSurfacePicker(QGroupBox):
         self.enable_button = QPushButton(self.ENABLE_BUTTON_TEXT)
         self.enable_button.clicked.connect(self._on_enable_button_pressed)
 
+        # make the rotation slider
+        self.rotation_slider = QSlider()
+        self.rotation_slider.setOrientation(Qt.Horizontal)
+        self.rotation_slider.setMinimum(-180)
+        self.rotation_slider.setMaximum(180)
+        self.rotation_slider.setValue(0)
+        self.rotation_slider.valueChanged.connect(self._update_rotation)
+
         # make the layout
         self.setLayout(QVBoxLayout())
         self.layout().addWidget(self.enable_button)
+        self.layout().addWidget(self.rotation_slider)
 
     def _on_enable_button_pressed(self, event):
         # toggle enabled
@@ -287,6 +324,8 @@ class QtSurfacePicker(QGroupBox):
 
             if self.points_layer is None:
                 self._initialize_points_layer()
+            if self.normal_vectors_layer is None:
+                self._initialize_vectors_layers()
             self.points_layer.visible = True
 
         self._on_enable_change()
@@ -297,11 +336,49 @@ class QtSurfacePicker(QGroupBox):
         else:
             self._disconnect_mouse_callbacks()
 
+    def _update_rotation(self, value):
+        """Callback function to update the rotation of the selected points."""
+        selected_points = list(self.points_layer.selected_data)
+        self.rotations[selected_points] = value
+
+        rotation_radians = value * (np.pi / 180)
+        new_rotations = rotation_radians * np.ones(len(selected_points))
+
+        old_up_vector = self.up_vectors[selected_points]
+        normal_vector = self.normal_vectors[selected_points]
+
+        new_up_vector = rotate_around_vector(
+            rotate_around=normal_vector,
+            to_rotate=old_up_vector,
+            angle=rotation_radians,
+        )
+
+        update_rotations_on_points_layer(
+            points_layer=self.points_layer,
+            point_index=selected_points,
+            rotations=new_rotations,
+        )
+
+        self.up_vectors_layer.data[selected_points, 1, :] = new_up_vector
+        self.up_vectors_layer.refresh()
+
     def _initialize_points_layer(self):
         self.points_layer = self.surforama.viewer.add_points(
             ndim=3, size=3, face_color="magenta"
         )
         self.points_layer.shading = "spherical"
+        self.surforama.viewer.layers.selection = [self.surforama.surface_layer]
+
+    def _initialize_vectors_layers(self):
+        self.normal_vectors_layer = self.surforama.viewer.add_vectors(
+            ndim=3,
+            length=10,
+            edge_color="cornflowerblue",
+            name="surface normals",
+        )
+        self.up_vectors_layer = self.surforama.viewer.add_vectors(
+            ndim=3, length=10, edge_color="orange", name="up vectors"
+        )
         self.surforama.viewer.layers.selection = [self.surforama.surface_layer]
 
     def _connect_mouse_callbacks(self):
@@ -330,6 +407,7 @@ class QtSurfacePicker(QGroupBox):
             # if the click did not intersect the mesh, don't do anything
             return
 
+        # get the intersection point
         candidate_vertices = layer.data[1][triangle_index]
         candidate_points = layer.data[0][candidate_vertices]
         (
@@ -339,7 +417,45 @@ class QtSurfacePicker(QGroupBox):
             event.position, event.view_direction, candidate_points[None, :, :]
         )
 
+        # get normal vector of intersected triangle
+        mesh = self.surforama.mesh
+        normal_vector = mesh.face_normals[triangle_index]
+
+        # create the orientation coordinate system
+        up_vector = np.cross(
+            normal_vector, [1, 0, 0]
+        )  # todo add check if normal is parallel
+
+        # store the data
+        feature_table = self.points_layer._feature_table
+        table_defaults = feature_table.defaults
+        table_defaults[NAPARI_NORMAL_0] = normal_vector[0]
+        table_defaults[NAPARI_NORMAL_1] = normal_vector[1]
+        table_defaults[NAPARI_NORMAL_2] = normal_vector[2]
+        table_defaults[NAPARI_UP_0] = up_vector[0]
+        table_defaults[NAPARI_UP_1] = up_vector[1]
+        table_defaults[NAPARI_UP_2] = up_vector[2]
+        table_defaults[ROTATION] = 0
+        self.normal_vectors = np.concatenate(
+            (self.normal_vectors, np.atleast_2d(normal_vector))
+        )
+        self.up_vectors = np.concatenate(
+            (self.up_vectors, np.atleast_2d(up_vector))
+        )
+        self.rotations = np.append(self.rotations, 0)
+
         self.points_layer.add(np.atleast_2d(intersection_coords))
+
+        # update the vectors
+        normal_data, up_data = vectors_data_from_points_layer(
+            self.points_layer
+        )
+        self.normal_vectors_layer.data = normal_data
+        self.up_vectors_layer.data = up_data
+
+        # colors were being reset - this might not be necessary
+        self.normal_vectors_layer.edge_color = "purple"
+        self.up_vectors_layer.edge_color = "orange"
 
 
 class QtPointWriter(QGroupBox):
@@ -361,21 +477,16 @@ class QtPointWriter(QGroupBox):
         self.layout().addWidget(self.file_saving_widget.native)
 
     def _write_star_file(self, output_path: Path):
-        points = self.surface_picker.points_layer.data
-        points_table = pd.DataFrame(
-            {
-                STAR_Z_COLUMN_NAME: points[:, 0],
-                STAR_Y_COLUMN_NAME: points[:, 1],
-                STAR_X_COLUMN_NAME: points[:, 2],
-            }
+        oriented_points_to_star_file(
+            points_layer=self.surface_picker.points_layer,
+            output_path=output_path,
         )
-        starfile.write(points_table, output_path)
 
 
 if __name__ == "__main__":
 
-    obj_path = "tomo_17_M10_grow1_1_mesh_data.obj"
-    tomo_path = "tomo_17_M10_grow1_1_mesh_data.mrc"
+    obj_path = "../../examples/tomo_17_M10_grow1_1_mesh_data.obj"
+    tomo_path = "../../examples/tomo_17_M10_grow1_1_mesh_data.mrc"
 
     mrc = mrcfile.open(tomo_path, permissive=True)
     tomo_mrc = np.array(mrc.data)

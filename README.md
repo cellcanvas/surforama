@@ -6,9 +6,16 @@ inspired by [membranorama](https://github.com/dtegunov/membranorama)
 ![Screenshot of surforama showing a surface in the slice of a tomogram](surforama_screenshot.png)
 
 ## installation
-First, install napari. Then install surforama in the same environment.
+`surforama` requires the napari viewer. If you would like to install napari and surforama together in one line, you can use the following command:
 
-```python
+```bash
+pip install "surforama[napari]"
+```
+
+
+If you already have napari installed, you can directly install surforama in the same environment:
+
+```bash
 pip install surforama
 ```
 

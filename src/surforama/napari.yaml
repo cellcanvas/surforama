@@ -12,17 +12,30 @@ contributions:
     - id: surforama.thylakoid
       python_name: surforama.data._datasets:_thylakoid_membrane_sample_data_plugin
       title: Thylakoid membrane
+    - id: surforama.covid
+      python_name: surforama.data._datasets:_covid_membrane_sample_data_plugin
+      title: Covid virion membrane
     - id: surforama.mesh_reader
       python_name: surforama.io._reader_plugin:mesh_reader_plugin
       title: Mesh reader
+    - id: surforama.star_reader
+      python_name: surforama.io._reader_plugin:star_reader_plugin
+      title: star reader
   sample_data:
     - command: surforama.thylakoid
       key: thylakoid
       display_name: thylakoid membrane
+    - command: surforama.covid
+      key: covid
+      display_name: covid virion membrane
   readers:
     - command: surforama.mesh_reader
       filename_patterns:
         - '*.obj'
+      accepts_directories: false
+    - command: surforama.star_reader
+      filename_patterns:
+      - '*.star'
       accepts_directories: false
   widgets:
     - command: surforama.make_widget
