@@ -69,6 +69,9 @@ class QtSurforama(QWidget):
         self.slider.valueChanged.connect(self.slide_points)
         self.slider.setVisible(False)
         self.slider_value = QLabel("0 vx", self)
+        self.slider_value.setVisible(False)
+        self.slider_title = QLabel("Extend/contract surface")
+        self.slider_title.setVisible(False)
 
         self.sliderLayout = QHBoxLayout()
         self.sliderLayout.addWidget(self.slider)
@@ -86,6 +89,9 @@ class QtSurforama(QWidget):
         )
         self.sampling_depth_slider.setVisible(False)
         self.sampling_depth_value = QLabel("10", self)
+        self.sampling_depth_value.setVisible(False)
+        self.sampling_depth_title = QLabel("Surface Thickness")
+        self.sampling_depth_title.setVisible(False)
 
         self.sampling_depth_sliderLayout = QHBoxLayout()
         self.sampling_depth_sliderLayout.addWidget(self.sampling_depth_slider)
@@ -107,9 +113,11 @@ class QtSurforama(QWidget):
         self.setLayout(QVBoxLayout())
         self.layout().addWidget(self.mesh_generator_widget)
         self.layout().addWidget(self._layer_selection_widget.native)
-        self.layout().addWidget(QLabel("Extend/contract surface"))
+        # self.layout().addWidget(QLabel("Extend/contract surface"))
+        self.layout().addWidget(self.slider_title)
         self.layout().addLayout(self.sliderLayout)
-        self.layout().addWidget(QLabel("Surface Thickness"))
+        # self.layout().addWidget(QLabel("Surface Thickness"))
+        self.layout().addWidget(self.sampling_depth_title)
         self.layout().addLayout(self.sampling_depth_sliderLayout)
         self.layout().addWidget(self.picking_widget)
         self.layout().addWidget(self.point_writer_widget)
@@ -155,6 +163,10 @@ class QtSurforama(QWidget):
         self.sampling_depth_slider.setVisible(True)
         self.picking_widget.setVisible(True)
         self.point_writer_widget.setVisible(True)
+        self.slider_title.setVisible(True)
+        self.slider_value.setVisible(True)
+        self.sampling_depth_title.setVisible(True)
+        self.sampling_depth_value.setVisible(True)
 
     def _get_valid_surface_layers(self, combo_box) -> List[Surface]:
         return [
@@ -344,7 +356,9 @@ class QtSurfacePicker(QGroupBox):
         self.rotations[selected_points] = value
 
         rotation_radians = value * (np.pi / 180)
-        new_rotations = rotation_radians * np.ones(len(selected_points))
+        new_rotations = rotation_radians * np.ones(
+            len(selected_points), dtype=float
+        )
 
         old_up_vector = self.up_vectors[selected_points]
         normal_vector = self.normal_vectors[selected_points]
@@ -437,7 +451,7 @@ class QtSurfacePicker(QGroupBox):
         table_defaults[NAPARI_UP_0] = up_vector[0]
         table_defaults[NAPARI_UP_1] = up_vector[1]
         table_defaults[NAPARI_UP_2] = up_vector[2]
-        table_defaults[ROTATION] = 0
+        table_defaults[ROTATION] = 0.0
         self.normal_vectors = np.concatenate(
             (self.normal_vectors, np.atleast_2d(normal_vector))
         )
