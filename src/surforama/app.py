@@ -6,7 +6,7 @@ import napari
 import numpy as np
 import trimesh
 from magicgui import magicgui
-from napari.layers import Image, Surface
+from napari.layers import Image, Labels, Surface
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
     QGroupBox,
@@ -17,6 +17,7 @@ from qtpy.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from scipy.ndimage import map_coordinates
 
 from surforama.constants import (
     NAPARI_NORMAL_0,
@@ -27,7 +28,7 @@ from surforama.constants import (
     NAPARI_UP_2,
     ROTATION,
 )
-from surforama.io import read_obj_file
+from surforama.io import convert_mask_to_mesh, read_obj_file
 from surforama.io.star import oriented_points_to_star_file
 from surforama.utils.geometry import rotate_around_vector
 from surforama.utils.napari import (
@@ -106,6 +107,8 @@ class QtSurforama(QWidget):
         )
         self.point_writer_widget.setVisible(False)
 
+        self.mesh_generator_widget = QtMeshGenerator(viewer, parent=self)
+
         # make the layout
         self.setLayout(QVBoxLayout())
         self.layout().addWidget(self._layer_selection_widget.native)
@@ -118,6 +121,7 @@ class QtSurforama(QWidget):
         self.layout().addWidget(self.picking_widget)
         self.layout().addWidget(self.point_writer_widget)
         self.layout().addStretch()
+        self.layout().addWidget(self.mesh_generator_widget)
 
         # set the layers
         self._set_layers(surface_layer=surface_layer, image_layer=volume_layer)
@@ -152,7 +156,7 @@ class QtSurforama(QWidget):
         self.surface_layer.refresh()
 
         self.normals = self.mesh.vertex_normals
-        self.volume = image_layer.data
+        self.volume = image_layer.data.astype(np.float32)
 
         # make the widgets visible
         self.slider.setVisible(True)
@@ -183,11 +187,9 @@ class QtSurforama(QWidget):
         ]
 
     def get_point_colors(self, points):
-        point_indices = points.astype(int)
-
-        point_values = self.volume[
-            point_indices[:, 0], point_indices[:, 1], point_indices[:, 2]
-        ]
+        point_values = map_coordinates(
+            self.volume, points.T, order=1, mode="nearest"
+        )
 
         normalized_values = (point_values - point_values.min()) / (
             point_values.max() - point_values.min() + np.finfo(float).eps
@@ -495,6 +497,67 @@ class QtPointWriter(QGroupBox):
             points_layer=self.surface_picker.points_layer,
             output_path=output_path,
         )
+
+
+class QtMeshGenerator(QGroupBox):
+    def __init__(
+        self, viewer: napari.Viewer, parent: Optional[QWidget] = None
+    ):
+        super().__init__("Generate Mesh from Labels", parent=parent)
+        self.viewer = viewer
+
+        # make the labels layer selection widget
+        self.labels_layer_selection_widget = magicgui(
+            self._generate_mesh_from_labels,
+            labels_layer={"choices": self._get_valid_labels_layers},
+            barycentric_area={
+                "widget_type": "Slider",
+                "min": 0.1,
+                "max": 10.0,
+                "value": 1.0,
+                "step": 0.1,
+            },
+            smoothing={
+                "widget_type": "Slider",
+                "min": 0,
+                "max": 1000,
+                "value": 1000,
+            },
+            call_button="Generate Mesh",
+        )
+
+        # make the layout
+        self.setLayout(QVBoxLayout())
+        self.layout().addWidget(self.labels_layer_selection_widget.native)
+
+        # Add callback to update choices when layers change
+        self.viewer.layers.events.inserted.connect(self._on_layer_update)
+        self.viewer.layers.events.removed.connect(self._on_layer_update)
+
+    def _on_layer_update(self, event=None):
+        """Refresh the layer choices when layers are added or removed."""
+        self.labels_layer_selection_widget.reset_choices()
+
+    def _get_valid_labels_layers(self, combo_box) -> List[Labels]:
+        return [
+            layer
+            for layer in self.viewer.layers
+            if isinstance(layer, napari.layers.Labels)
+        ]
+
+    def _generate_mesh_from_labels(
+        self,
+        labels_layer: Labels,
+        smoothing: int = 10,
+        barycentric_area: float = 1.0,
+    ):
+        # Assuming create_mesh_from_mask exists and generates vertices, faces, and values
+        vertices, faces, values = convert_mask_to_mesh(
+            labels_layer.data,
+            smoothing=smoothing,
+            barycentric_area=barycentric_area,
+        )
+        self.viewer.add_surface((vertices, faces, values))
 
 
 if __name__ == "__main__":
