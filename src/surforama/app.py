@@ -1,4 +1,3 @@
-from pathlib import Path
 from typing import List, Optional
 
 import mrcfile
@@ -28,8 +27,8 @@ from surforama.constants import (
     NAPARI_UP_2,
     ROTATION,
 )
+from surforama.gui.qt_point_io import QtPointIO
 from surforama.io import convert_mask_to_mesh, read_obj_file
-from surforama.io.star import oriented_points_to_star_file
 from surforama.utils.geometry import rotate_around_vector
 from surforama.utils.napari import (
     update_rotations_on_points_layer,
@@ -96,7 +95,7 @@ class QtSurforama(QWidget):
         self.picking_widget.setVisible(False)
 
         # make the saving widget
-        self.point_writer_widget = QtPointWriter(
+        self.point_writer_widget = QtPointIO(
             surface_picker=self.picking_widget, parent=self
         )
         self.point_writer_widget.setVisible(False)
@@ -458,31 +457,6 @@ class QtSurfacePicker(QGroupBox):
         # colors were being reset - this might not be necessary
         self.normal_vectors_layer.edge_color = "purple"
         self.up_vectors_layer.edge_color = "orange"
-
-
-class QtPointWriter(QGroupBox):
-    def __init__(
-        self, surface_picker: QtSurfacePicker, parent: Optional[QWidget] = None
-    ):
-        super().__init__("Save points", parent=parent)
-        self.surface_picker = surface_picker
-
-        # make the points saving widget
-        self.file_saving_widget = magicgui(
-            self._write_star_file,
-            output_path={"mode": "w"},
-            call_button="Save to star file",
-        )
-
-        # make the layout
-        self.setLayout(QVBoxLayout())
-        self.layout().addWidget(self.file_saving_widget.native)
-
-    def _write_star_file(self, output_path: Path):
-        oriented_points_to_star_file(
-            points_layer=self.surface_picker.points_layer,
-            output_path=output_path,
-        )
 
 
 class QtMeshGenerator(QGroupBox):
