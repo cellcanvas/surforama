@@ -6,7 +6,7 @@ from napari.utils.notifications import show_warning
 from qtpy.QtWidgets import QGroupBox, QTabWidget, QVBoxLayout, QWidget
 
 if TYPE_CHECKING:
-    from surforama.app import QtSurfacePicker
+    from surforama.gui.qt_surface_picker import QtSurfacePicker
 from surforama.io.star import (
     load_points_layer_data_from_star_file,
     oriented_points_to_star_file,
