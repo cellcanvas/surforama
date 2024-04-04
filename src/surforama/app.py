@@ -32,6 +32,7 @@ class QtSurforama(QWidget):
     ):
         super().__init__(parent=parent)
         self.viewer = viewer
+        self._enabled = False
 
         # make the layer selection widget
         self._layer_selection_widget = magicgui(
@@ -111,6 +112,39 @@ class QtSurforama(QWidget):
         # set the layers
         self._set_layers(surface_layer=surface_layer, image_layer=volume_layer)
 
+    @property
+    def enabled(self) -> bool:
+        return self._enabled
+
+    @enabled.setter
+    def enabled(self, enabled: bool):
+        if enabled == self.enabled:
+            # no change
+            return
+
+        if enabled:
+            # make the widgets visible
+            self.slider.setVisible(True)
+            self.sampling_depth_slider.setVisible(True)
+            self.picking_widget.setVisible(True)
+            self.point_writer_widget.setVisible(True)
+            self.slider_title.setVisible(True)
+            self.slider_value.setVisible(True)
+            self.sampling_depth_title.setVisible(True)
+            self.sampling_depth_value.setVisible(True)
+        else:
+            # make the widgets visible
+            self.slider.setVisible(False)
+            self.sampling_depth_slider.setVisible(False)
+            self.picking_widget.setVisible(False)
+            self.point_writer_widget.setVisible(False)
+            self.slider_title.setVisible(False)
+            self.slider_value.setVisible(False)
+            self.sampling_depth_title.setVisible(False)
+            self.sampling_depth_value.setVisible(False)
+
+        self._enabled = enabled
+
     def _set_layers(
         self,
         surface_layer: Surface,
@@ -138,20 +172,13 @@ class QtSurforama(QWidget):
             self.faces,
             self.color_values,
         )
+        self.surface_layer.shading = "none"
         self.surface_layer.refresh()
 
         self.normals = self.mesh.vertex_normals
         self.volume = image_layer.data.astype(np.float32)
 
-        # make the widgets visible
-        self.slider.setVisible(True)
-        self.sampling_depth_slider.setVisible(True)
-        self.picking_widget.setVisible(True)
-        self.point_writer_widget.setVisible(True)
-        self.slider_title.setVisible(True)
-        self.slider_value.setVisible(True)
-        self.sampling_depth_title.setVisible(True)
-        self.sampling_depth_value.setVisible(True)
+        self.enabled = True
 
     def _get_valid_surface_layers(self, combo_box) -> List[Surface]:
         return [
@@ -163,6 +190,25 @@ class QtSurforama(QWidget):
     def _on_layer_update(self, event=None):
         """When the model updates the selected layer, update widgets."""
         self._layer_selection_widget.reset_choices()
+
+        # check if the stored layers are still around
+        layer_deleted = False
+        if (
+            self.surface_layer is not None
+        ) and self.surface_layer not in self.viewer.layers:
+            # remove the surface layer if it has been deleted.
+            self.surface_layer = None
+            layer_deleted = True
+
+        if (self.image_layer is not None) and (
+            self.image_layer not in self.viewer.layers
+        ):
+            # remove the surface layer if it has been deleted.
+            self.image_layer = None
+            layer_deleted = True
+
+        if layer_deleted:
+            self.enabled = False
 
     def _get_valid_image_layers(self, combo_box) -> List[Image]:
         return [
