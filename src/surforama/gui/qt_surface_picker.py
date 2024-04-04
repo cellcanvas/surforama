@@ -40,6 +40,11 @@ class QtSurfacePicker(QGroupBox):
         self.surforama = surforama
         self.points_layer = None
         self.normal_vectors_layer = None
+        self.up_vectors_layer = None
+
+        self.surforama.viewer.layers.events.removed.connect(
+            self._on_layer_update
+        )
 
         # initialize orientation data
         # todo store elsewhere (e.g., layer features)
@@ -48,7 +53,7 @@ class QtSurfacePicker(QGroupBox):
         self.rotations = np.empty((0,))
 
         # enable state
-        self.enabled = False
+        self._enabled = False
 
         # make the activate button
         self.enable_button = QPushButton(self.ENABLE_BUTTON_TEXT)
@@ -67,31 +72,77 @@ class QtSurfacePicker(QGroupBox):
         self.layout().addWidget(self.enable_button)
         self.layout().addWidget(self.rotation_slider)
 
-    def _on_enable_button_pressed(self, event):
-        # toggle enabled
-        if self.enabled:
-            # if currently enabled, toggle to disabled
-            self.enabled = False
-            self.enable_button.setText(self.ENABLE_BUTTON_TEXT)
+    @property
+    def enabled(self) -> bool:
+        return self._enabled
 
-        else:
-            # if disabled, toggle to enabled
-            self.enabled = True
+    @enabled.setter
+    def enabled(self, enabled: bool):
+        if enabled == self.enabled:
+            # do nothing
+            return
+        if enabled:
             self.enable_button.setText(self.DISABLE_BUTTON_TEXT)
 
             if self.points_layer is None:
                 self._initialize_points_layer()
             if self.normal_vectors_layer is None:
-                self._initialize_vectors_layers()
+                self._initialize_normal_vectors_layers()
+            if self.up_vectors_layer is None:
+                self._initialize_up_vectors_layers()
             self.points_layer.visible = True
 
-        self._on_enable_change()
+            # update the vectors layer
+            self._on_points_update()
 
-    def _on_enable_change(self):
-        if self.enabled:
+            # add the mouse callbacks
             self._connect_mouse_callbacks()
+
         else:
+            self.enable_button.setText(self.ENABLE_BUTTON_TEXT)
+
+            # remove the mouse callbacks
             self._disconnect_mouse_callbacks()
+
+        self._enabled = enabled
+
+    def _on_layer_update(self):
+        # check if the stored layers are still around
+        viewer = self.surforama.viewer
+        layer_deleted = False
+        if (self.points_layer is not None) and (
+            self.points_layer not in viewer.layers
+        ):
+            # remove the surface layer if it has been deleted.
+            self.points_layer = None
+            layer_deleted = True
+
+        if (self.normal_vectors_layer is not None) and (
+            self.normal_vectors_layer not in viewer.layers
+        ):
+            # remove the surface layer if it has been deleted.
+            self.normal_vectors_layer = None
+            layer_deleted = True
+
+        if (self.up_vectors_layer is not None) and (
+            self.up_vectors_layer not in viewer.layers
+        ):
+            # remove the surface layer if it has been deleted.
+            self.up_vectors_layer = None
+            layer_deleted = True
+
+        if layer_deleted:
+            self.enabled = False
+
+    def _on_enable_button_pressed(self, event):
+        # toggle enabled
+        if self.enabled:
+            # if currently enabled, toggle to disabled
+            self.enabled = False
+
+        else:
+            # if disabled, toggle to enabled
+            self.enabled = True
 
     def _update_rotation(self, value):
         """Callback function to update the rotation of the selected points."""
@@ -129,13 +180,16 @@ class QtSurfacePicker(QGroupBox):
         self.points_layer.events.data.connect(self._on_points_update)
         self.surforama.viewer.layers.selection = [self.surforama.surface_layer]
 
-    def _initialize_vectors_layers(self):
+    def _initialize_normal_vectors_layers(self):
         self.normal_vectors_layer = self.surforama.viewer.add_vectors(
             ndim=3,
             length=10,
             edge_color="cornflowerblue",
             name="surface normals",
         )
+        self.surforama.viewer.layers.selection = [self.surforama.surface_layer]
+
+    def _initialize_up_vectors_layers(self):
         self.up_vectors_layer = self.surforama.viewer.add_vectors(
             ndim=3, length=10, edge_color="orange", name="up vectors"
         )
