@@ -6,10 +6,10 @@ from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
     QGroupBox,
     QPushButton,
-    QSlider,
     QVBoxLayout,
     QWidget,
 )
+from superqt import QLabeledDoubleSlider
 
 if TYPE_CHECKING:
     from surforama import QtSurforama
@@ -60,8 +60,7 @@ class QtSurfacePicker(QGroupBox):
         self.enable_button.clicked.connect(self._on_enable_button_pressed)
 
         # make the rotation slider
-        self.rotation_slider = QSlider()
-        self.rotation_slider.setOrientation(Qt.Horizontal)
+        self.rotation_slider = QLabeledDoubleSlider(Qt.Orientation.Horizontal)
         self.rotation_slider.setMinimum(-180)
         self.rotation_slider.setMaximum(180)
         self.rotation_slider.setValue(0)
@@ -178,6 +177,9 @@ class QtSurfacePicker(QGroupBox):
         )
         self.points_layer.shading = "spherical"
         self.points_layer.events.data.connect(self._on_points_update)
+        self.points_layer.selected_data.events.items_changed.connect(
+            self._on_point_selection
+        )
         self.surforama.viewer.layers.selection = [self.surforama.surface_layer]
 
     def _initialize_normal_vectors_layers(self):
@@ -207,6 +209,21 @@ class QtSurfacePicker(QGroupBox):
         # colors were being reset - this might not be necessary
         self.normal_vectors_layer.edge_color = "purple"
         self.up_vectors_layer.edge_color = "orange"
+
+    def _on_point_selection(self, event=None):
+        selected_points = list(self.points_layer.selected_data)
+        if len(selected_points) == 0:
+            # no points selected
+            return
+        rotation_column = self.points_layer.features.columns.get_loc(ROTATION)
+        rotations = self.points_layer.features.iloc[
+            selected_points, rotation_column
+        ].to_numpy()
+        rotation = rotations[0]
+
+        self.rotation_slider.blockSignals(True)
+        self.rotation_slider.setValue((180 / np.pi) * rotation)
+        self.rotation_slider.blockSignals(False)
 
     def _connect_mouse_callbacks(self):
         self.surforama.surface_layer.mouse_drag_callbacks.append(
