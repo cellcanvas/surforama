@@ -1,4 +1,3 @@
-from pathlib import Path
 from typing import List, Optional
 
 import mrcfile
@@ -6,35 +5,21 @@ import napari
 import numpy as np
 import trimesh
 from magicgui import magicgui
-from napari.layers import Image, Labels, Surface
+from napari.layers import Image, Surface
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
-    QGroupBox,
     QHBoxLayout,
     QLabel,
-    QPushButton,
     QSlider,
     QVBoxLayout,
     QWidget,
 )
 from scipy.ndimage import map_coordinates
 
-from surforama.constants import (
-    NAPARI_NORMAL_0,
-    NAPARI_NORMAL_1,
-    NAPARI_NORMAL_2,
-    NAPARI_UP_0,
-    NAPARI_UP_1,
-    NAPARI_UP_2,
-    ROTATION,
-)
-from surforama.io import convert_mask_to_mesh, read_obj_file
-from surforama.io.star import oriented_points_to_star_file
-from surforama.utils.geometry import rotate_around_vector
-from surforama.utils.napari import (
-    update_rotations_on_points_layer,
-    vectors_data_from_points_layer,
-)
+from surforama.gui.qt_mesh_generator import QtMeshGenerator
+from surforama.gui.qt_point_io import QtPointIO
+from surforama.gui.qt_surface_picker import QtSurfacePicker
+from surforama.io import read_obj_file
 
 
 class QtSurforama(QWidget):
@@ -47,6 +32,7 @@ class QtSurforama(QWidget):
     ):
         super().__init__(parent=parent)
         self.viewer = viewer
+        self._enabled = False
 
         # make the layer selection widget
         self._layer_selection_widget = magicgui(
@@ -69,6 +55,9 @@ class QtSurforama(QWidget):
         self.slider.valueChanged.connect(self.slide_points)
         self.slider.setVisible(False)
         self.slider_value = QLabel("0 vx", self)
+        self.slider_value.setVisible(False)
+        self.slider_title = QLabel("Extend/contract surface")
+        self.slider_title.setVisible(False)
 
         self.sliderLayout = QHBoxLayout()
         self.sliderLayout.addWidget(self.slider)
@@ -86,6 +75,9 @@ class QtSurforama(QWidget):
         )
         self.sampling_depth_slider.setVisible(False)
         self.sampling_depth_value = QLabel("10", self)
+        self.sampling_depth_value.setVisible(False)
+        self.sampling_depth_title = QLabel("Surface Thickness")
+        self.sampling_depth_title.setVisible(False)
 
         self.sampling_depth_sliderLayout = QHBoxLayout()
         self.sampling_depth_sliderLayout.addWidget(self.sampling_depth_slider)
@@ -96,7 +88,7 @@ class QtSurforama(QWidget):
         self.picking_widget.setVisible(False)
 
         # make the saving widget
-        self.point_writer_widget = QtPointWriter(
+        self.point_writer_widget = QtPointIO(
             surface_picker=self.picking_widget, parent=self
         )
         self.point_writer_widget.setVisible(False)
@@ -105,18 +97,53 @@ class QtSurforama(QWidget):
 
         # make the layout
         self.setLayout(QVBoxLayout())
+        self.layout().addWidget(self.mesh_generator_widget)
         self.layout().addWidget(self._layer_selection_widget.native)
-        self.layout().addWidget(QLabel("Extend/contract surface"))
+        # self.layout().addWidget(QLabel("Extend/contract surface"))
+        self.layout().addWidget(self.slider_title)
         self.layout().addLayout(self.sliderLayout)
-        self.layout().addWidget(QLabel("Surface Thickness"))
+        # self.layout().addWidget(QLabel("Surface Thickness"))
+        self.layout().addWidget(self.sampling_depth_title)
         self.layout().addLayout(self.sampling_depth_sliderLayout)
         self.layout().addWidget(self.picking_widget)
         self.layout().addWidget(self.point_writer_widget)
         self.layout().addStretch()
-        self.layout().addWidget(self.mesh_generator_widget)
 
         # set the layers
         self._set_layers(surface_layer=surface_layer, image_layer=volume_layer)
+
+    @property
+    def enabled(self) -> bool:
+        return self._enabled
+
+    @enabled.setter
+    def enabled(self, enabled: bool):
+        if enabled == self.enabled:
+            # no change
+            return
+
+        if enabled:
+            # make the widgets visible
+            self.slider.setVisible(True)
+            self.sampling_depth_slider.setVisible(True)
+            self.picking_widget.setVisible(True)
+            self.point_writer_widget.setVisible(True)
+            self.slider_title.setVisible(True)
+            self.slider_value.setVisible(True)
+            self.sampling_depth_title.setVisible(True)
+            self.sampling_depth_value.setVisible(True)
+        else:
+            # make the widgets visible
+            self.slider.setVisible(False)
+            self.sampling_depth_slider.setVisible(False)
+            self.picking_widget.setVisible(False)
+            self.point_writer_widget.setVisible(False)
+            self.slider_title.setVisible(False)
+            self.slider_value.setVisible(False)
+            self.sampling_depth_title.setVisible(False)
+            self.sampling_depth_value.setVisible(False)
+
+        self._enabled = enabled
 
     def _set_layers(
         self,
@@ -145,16 +172,13 @@ class QtSurforama(QWidget):
             self.faces,
             self.color_values,
         )
+        self.surface_layer.shading = "none"
         self.surface_layer.refresh()
 
         self.normals = self.mesh.vertex_normals
         self.volume = image_layer.data.astype(np.float32)
 
-        # make the widgets visible
-        self.slider.setVisible(True)
-        self.sampling_depth_slider.setVisible(True)
-        self.picking_widget.setVisible(True)
-        self.point_writer_widget.setVisible(True)
+        self.enabled = True
 
     def _get_valid_surface_layers(self, combo_box) -> List[Surface]:
         return [
@@ -166,6 +190,25 @@ class QtSurforama(QWidget):
     def _on_layer_update(self, event=None):
         """When the model updates the selected layer, update widgets."""
         self._layer_selection_widget.reset_choices()
+
+        # check if the stored layers are still around
+        layer_deleted = False
+        if (
+            self.surface_layer is not None
+        ) and self.surface_layer not in self.viewer.layers:
+            # remove the surface layer if it has been deleted.
+            self.surface_layer = None
+            layer_deleted = True
+
+        if (self.image_layer is not None) and (
+            self.image_layer not in self.viewer.layers
+        ):
+            # remove the surface layer if it has been deleted.
+            self.image_layer = None
+            layer_deleted = True
+
+        if layer_deleted:
+            self.enabled = False
 
     def _get_valid_image_layers(self, combo_box) -> List[Image]:
         return [
@@ -272,278 +315,6 @@ class QtSurforama(QWidget):
         self.color_values = new_colors
         self.update_mesh()
         self.sampling_depth_value.setText(f"{value}")
-
-
-class QtSurfacePicker(QGroupBox):
-    ENABLE_BUTTON_TEXT = "Enable"
-    DISABLE_BUTTON_TEXT = "Disable"
-
-    def __init__(
-        self, surforama: QtSurforama, parent: Optional[QWidget] = None
-    ):
-        super().__init__("Pick on surface", parent=parent)
-        self.surforama = surforama
-        self.points_layer = None
-        self.normal_vectors_layer = None
-
-        # initialize orientation data
-        # todo store elsewhere (e.g., layer features)
-        self.normal_vectors = np.empty((0, 3))
-        self.up_vectors = np.empty((0, 3))
-        self.rotations = np.empty((0,))
-
-        # enable state
-        self.enabled = False
-
-        # make the activate button
-        self.enable_button = QPushButton(self.ENABLE_BUTTON_TEXT)
-        self.enable_button.clicked.connect(self._on_enable_button_pressed)
-
-        # make the rotation slider
-        self.rotation_slider = QSlider()
-        self.rotation_slider.setOrientation(Qt.Horizontal)
-        self.rotation_slider.setMinimum(-180)
-        self.rotation_slider.setMaximum(180)
-        self.rotation_slider.setValue(0)
-        self.rotation_slider.valueChanged.connect(self._update_rotation)
-
-        # make the layout
-        self.setLayout(QVBoxLayout())
-        self.layout().addWidget(self.enable_button)
-        self.layout().addWidget(self.rotation_slider)
-
-    def _on_enable_button_pressed(self, event):
-        # toggle enabled
-        if self.enabled:
-            # if currently enabled, toggle to disabled
-            self.enabled = False
-            self.enable_button.setText(self.ENABLE_BUTTON_TEXT)
-
-        else:
-            # if disabled, toggle to enabled
-            self.enabled = True
-            self.enable_button.setText(self.DISABLE_BUTTON_TEXT)
-
-            if self.points_layer is None:
-                self._initialize_points_layer()
-            if self.normal_vectors_layer is None:
-                self._initialize_vectors_layers()
-            self.points_layer.visible = True
-
-        self._on_enable_change()
-
-    def _on_enable_change(self):
-        if self.enabled:
-            self._connect_mouse_callbacks()
-        else:
-            self._disconnect_mouse_callbacks()
-
-    def _update_rotation(self, value):
-        """Callback function to update the rotation of the selected points."""
-        selected_points = list(self.points_layer.selected_data)
-        self.rotations[selected_points] = value
-
-        rotation_radians = value * (np.pi / 180)
-        new_rotations = rotation_radians * np.ones(len(selected_points))
-
-        old_up_vector = self.up_vectors[selected_points]
-        normal_vector = self.normal_vectors[selected_points]
-
-        new_up_vector = rotate_around_vector(
-            rotate_around=normal_vector,
-            to_rotate=old_up_vector,
-            angle=rotation_radians,
-        )
-
-        update_rotations_on_points_layer(
-            points_layer=self.points_layer,
-            point_index=selected_points,
-            rotations=new_rotations,
-        )
-
-        self.up_vectors_layer.data[selected_points, 1, :] = new_up_vector
-        self.up_vectors_layer.refresh()
-
-    def _initialize_points_layer(self):
-        self.points_layer = self.surforama.viewer.add_points(
-            ndim=3, size=3, face_color="magenta"
-        )
-        self.points_layer.shading = "spherical"
-        self.surforama.viewer.layers.selection = [self.surforama.surface_layer]
-
-    def _initialize_vectors_layers(self):
-        self.normal_vectors_layer = self.surforama.viewer.add_vectors(
-            ndim=3,
-            length=10,
-            edge_color="cornflowerblue",
-            name="surface normals",
-        )
-        self.up_vectors_layer = self.surforama.viewer.add_vectors(
-            ndim=3, length=10, edge_color="orange", name="up vectors"
-        )
-        self.surforama.viewer.layers.selection = [self.surforama.surface_layer]
-
-    def _connect_mouse_callbacks(self):
-        self.surforama.surface_layer.mouse_drag_callbacks.append(
-            self._find_point_on_click
-        )
-
-    def _disconnect_mouse_callbacks(self):
-        self.surforama.surface_layer.mouse_drag_callbacks.remove(
-            self._find_point_on_click
-        )
-
-    def _find_point_on_click(self, layer, event):
-        # if "Alt" not in event.modifiers:
-        #    return
-        value = layer.get_value(
-            event.position,
-            view_direction=event.view_direction,
-            dims_displayed=event.dims_displayed,
-            world=True,
-        )
-        if value is None:
-            return
-        triangle_index = value[1]
-        if triangle_index is None:
-            # if the click did not intersect the mesh, don't do anything
-            return
-
-        # get the intersection point
-        candidate_vertices = layer.data[1][triangle_index]
-        candidate_points = layer.data[0][candidate_vertices]
-        (
-            _,
-            intersection_coords,
-        ) = napari.utils.geometry.find_nearest_triangle_intersection(
-            event.position, event.view_direction, candidate_points[None, :, :]
-        )
-
-        # get normal vector of intersected triangle
-        mesh = self.surforama.mesh
-        normal_vector = mesh.face_normals[triangle_index]
-
-        # create the orientation coordinate system
-        up_vector = np.cross(
-            normal_vector, [1, 0, 0]
-        )  # todo add check if normal is parallel
-
-        # store the data
-        feature_table = self.points_layer._feature_table
-        table_defaults = feature_table.defaults
-        table_defaults[NAPARI_NORMAL_0] = normal_vector[0]
-        table_defaults[NAPARI_NORMAL_1] = normal_vector[1]
-        table_defaults[NAPARI_NORMAL_2] = normal_vector[2]
-        table_defaults[NAPARI_UP_0] = up_vector[0]
-        table_defaults[NAPARI_UP_1] = up_vector[1]
-        table_defaults[NAPARI_UP_2] = up_vector[2]
-        table_defaults[ROTATION] = 0
-        self.normal_vectors = np.concatenate(
-            (self.normal_vectors, np.atleast_2d(normal_vector))
-        )
-        self.up_vectors = np.concatenate(
-            (self.up_vectors, np.atleast_2d(up_vector))
-        )
-        self.rotations = np.append(self.rotations, 0)
-
-        self.points_layer.add(np.atleast_2d(intersection_coords))
-
-        # update the vectors
-        normal_data, up_data = vectors_data_from_points_layer(
-            self.points_layer
-        )
-        self.normal_vectors_layer.data = normal_data
-        self.up_vectors_layer.data = up_data
-
-        # colors were being reset - this might not be necessary
-        self.normal_vectors_layer.edge_color = "purple"
-        self.up_vectors_layer.edge_color = "orange"
-
-
-class QtPointWriter(QGroupBox):
-    def __init__(
-        self, surface_picker: QtSurfacePicker, parent: Optional[QWidget] = None
-    ):
-        super().__init__("Save points", parent=parent)
-        self.surface_picker = surface_picker
-
-        # make the points saving widget
-        self.file_saving_widget = magicgui(
-            self._write_star_file,
-            output_path={"mode": "w"},
-            call_button="Save to star file",
-        )
-
-        # make the layout
-        self.setLayout(QVBoxLayout())
-        self.layout().addWidget(self.file_saving_widget.native)
-
-    def _write_star_file(self, output_path: Path):
-        oriented_points_to_star_file(
-            points_layer=self.surface_picker.points_layer,
-            output_path=output_path,
-        )
-
-
-class QtMeshGenerator(QGroupBox):
-    def __init__(
-        self, viewer: napari.Viewer, parent: Optional[QWidget] = None
-    ):
-        super().__init__("Generate Mesh from Labels", parent=parent)
-        self.viewer = viewer
-
-        # make the labels layer selection widget
-        self.labels_layer_selection_widget = magicgui(
-            self._generate_mesh_from_labels,
-            labels_layer={"choices": self._get_valid_labels_layers},
-            barycentric_area={
-                "widget_type": "Slider",
-                "min": 0.1,
-                "max": 10.0,
-                "value": 1.0,
-                "step": 0.1,
-            },
-            smoothing={
-                "widget_type": "Slider",
-                "min": 0,
-                "max": 1000,
-                "value": 1000,
-            },
-            call_button="Generate Mesh",
-        )
-
-        # make the layout
-        self.setLayout(QVBoxLayout())
-        self.layout().addWidget(self.labels_layer_selection_widget.native)
-
-        # Add callback to update choices when layers change
-        self.viewer.layers.events.inserted.connect(self._on_layer_update)
-        self.viewer.layers.events.removed.connect(self._on_layer_update)
-
-    def _on_layer_update(self, event=None):
-        """Refresh the layer choices when layers are added or removed."""
-        self.labels_layer_selection_widget.reset_choices()
-
-    def _get_valid_labels_layers(self, combo_box) -> List[Labels]:
-        return [
-            layer
-            for layer in self.viewer.layers
-            if isinstance(layer, napari.layers.Labels)
-        ]
-
-    def _generate_mesh_from_labels(
-        self,
-        labels_layer: Labels,
-        smoothing: int = 10,
-        barycentric_area: float = 1.0,
-    ):
-        # Assuming create_mesh_from_mask exists and generates vertices, faces, and values
-        vertices, faces, values = convert_mask_to_mesh(
-            labels_layer.data,
-            smoothing=smoothing,
-            barycentric_area=barycentric_area,
-        )
-        self.viewer.add_surface((vertices, faces, values))
 
 
 if __name__ == "__main__":
