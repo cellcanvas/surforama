@@ -164,8 +164,11 @@ class QtSurforama(QWidget):
         self.vertices = self.mesh.vertices
         self.faces = self.mesh.faces
 
-        # Compute vertex normals
-        self.color_values = np.ones((self.mesh.vertices.shape[0],))
+        self.volume = image_layer.data.astype(np.float32)
+        self.normals = self.mesh.vertex_normals
+
+        # Compute vertex values
+        self.color_values = self.get_point_colors(self.get_point_set())
 
         self.surface_layer.data = (
             self.vertices,
@@ -174,9 +177,6 @@ class QtSurforama(QWidget):
         )
         self.surface_layer.shading = "none"
         self.surface_layer.refresh()
-
-        self.normals = self.mesh.vertex_normals
-        self.volume = image_layer.data.astype(np.float32)
 
         self.enabled = True
 
