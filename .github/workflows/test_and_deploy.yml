@@ -99,7 +99,7 @@ jobs:
     # and requires that you have put your twine API key in your
     # github secrets (see readme for details)
     needs: [test]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     if: contains(github.ref, 'tags')
     steps:
       - uses: actions/checkout@v2
