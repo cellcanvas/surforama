@@ -63,6 +63,28 @@ jobs:
       - name: Coverage
         uses: codecov/codecov-action@v3
 
+  docs-test:
+      needs: [test]  # runs only after the other CI tests pass
+      runs-on: ubuntu-latest
+      steps:
+      - uses: actions/checkout@v4
+      - uses: tlambert03/setup-qt-libs@v1
+      # Install dependencies
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.9
+      - name: Install dependencies
+        run: |
+          pip install "PyOpenGL<3.1.7"
+          pip install ".[docs]"
+          pip list
+      # Build the book
+      - name: Build the book
+        uses: aganders3/headless-gui@v2
+        with:
+          run: mkdocs build --strict
+
   deploy:
     # this will run when you have tagged a commit, starting with "v*"
     # and requires that you have put your twine API key in your
