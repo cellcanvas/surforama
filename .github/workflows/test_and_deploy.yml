@@ -65,6 +65,8 @@ jobs:
 
   docs-test:
       needs: [test]  # runs only after the other CI tests pass
+      permissions:
+        contents: write
       runs-on: ubuntu-latest
       steps:
       - uses: actions/checkout@v4
