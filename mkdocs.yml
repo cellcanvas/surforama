@@ -1,0 +1,128 @@
+site_name: surforama
+site_url: https://github.com/cellcanvas/surforama
+site_author: Alister Burt and Kevin Yamauchi
+site_description: >-
+  Documentation for surforama, a tool for using surfaces
+  to explore volumetric data in napari.
+# Repository
+repo_name: cellcanvas/surforama
+repo_url: https://github.com/cellcanvas/surforama
+
+# Copyright
+copyright: Copyright &copy; 2024 CellCanvas team
+
+watch:
+  - src/surforama
+
+theme:
+  icon:
+    logo: material/home-circle
+  name: material
+  palette:
+    # Palette toggle for light mode
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/toggle-switch
+        name: Switch to dark mode
+
+    # Palette toggle for dark mode
+    - scheme: slate
+      primary: blue grey
+      accent: blue grey
+      toggle:
+        icon: material/toggle-switch-off-outline
+        name: Switch to light mode
+
+  features:
+    #- navigation.instant
+    #- navigation.tabs
+    #- navigation.top
+    #- navigation.tracking
+    - search.highlight
+    - search.suggest
+    # - toc.follow
+    # - content.code.annotate
+    # - navigation.sections
+    - content.tabs.link
+    - content.code.copy
+
+markdown_extensions:
+  - admonition
+  - tables
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - attr_list
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - md_in_html
+  - pymdownx.arithmatex:
+      generic: true
+
+
+extra:
+  analytics:
+    feedback:
+      title: Was this page helpful?
+      ratings:
+        - icon: material/emoticon-happy-outline
+          name: This page was helpful
+          data: 1
+          note: >-
+            Thanks for your feedback!
+        - icon: material/emoticon-sad-outline
+          name: This page could be improved
+          data: 0
+          note: >-
+            Thanks for your feedback! Help us improve this page by
+            using our <a href="..." target="_blank" rel="noopener">feedback form</a>.
+
+nav:
+  - 'Overview': index.md
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          import:
+            - https://docs.python.org/3/objects.inv
+          selection:
+            docstring_style: numpy
+            filters: [ "!^_" ]
+          rendering:
+            show_root_heading: true
+            show_root_toc_entry: true
+            show_root_full_path: true
+            show_object_full_path: false
+            # show_root_members_full_path: false
+            # show_category_heading: false
+            show_if_no_docstring: false
+            # show_signature: true
+            show_signature_annotations: true
+            show_source: true
+            # show_bases: true
+            # group_by_category: true
+            # heading_level: 2
+            members_order: source  # alphabetical/source
+
+            ## experimental
+            docstring_section_style: spacy  # or table/list/spacy
+  - mkdocs-video:
+      is_video: True
+      video_autoplay: True
+      video_loop: True
+#  - gallery:
+#      conf_script: docs/gallery_conf.py
+#      examples_dirs: [docs/examples]
+#      gallery_dirs: [docs/generated/gallery]
+#      filename_pattern: /*.py  # which scripts will be executed for the docs
+#      ignore_pattern: /__init__.py  # ignore these example files completely
+#      run_stale_examples: True
+
+extra_css:
+  - stylesheets/extra.css
