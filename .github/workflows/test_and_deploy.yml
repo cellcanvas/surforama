@@ -86,6 +86,12 @@ jobs:
         uses: aganders3/headless-gui@v2
         with:
           run: mkdocs build --strict
+      # Upload artifact
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: site
+          path: ./site
       # deploy when pushing to main
       - name: GitHub Pages action
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
