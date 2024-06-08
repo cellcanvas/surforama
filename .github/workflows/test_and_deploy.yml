@@ -63,7 +63,7 @@ jobs:
       - name: Coverage
         uses: codecov/codecov-action@v3
 
-  docs-test:
+  docs:
       needs: [test]  # runs only after the other CI tests pass
       permissions:
         contents: write
