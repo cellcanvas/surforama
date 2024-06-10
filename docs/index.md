@@ -3,7 +3,7 @@ a napari-based tool for using surfaces to explore volumetric data in napari
 
 inspired by [membranorama](https://github.com/dtegunov/membranorama)
 
-![Screenshot of surforama showing a surface in the slice of a tomogram](./docs/surforama_screenshot.png)
+![Screenshot of surforama showing a surface in the slice of a tomogram](./surforama_screenshot.png)
 
 ## installation
 `surforama` requires the napari viewer. If you would like to install napari and surforama together in one line, you can use the following command:
