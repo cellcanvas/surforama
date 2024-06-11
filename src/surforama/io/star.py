@@ -54,6 +54,14 @@ def load_points_layer_data_from_star_file(
     """Load an oriented Points layer from a Relion-formatted star file"""
     star_table = starfile.read(file_path)
     point_coordinates = load_points_from_star_table(star_table)
+
+    # check if the orientations are present
+    if not all(
+        column in star_table.columns
+        for column in ["rlnAngleRot", "rlnAngleTilt", "rlnAnglePsi"]
+    ):
+        return point_coordinates, None
+
     orientations = load_orientations_from_star_table(star_table)
 
     # get the normal vectors
