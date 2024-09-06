@@ -83,6 +83,7 @@ extra:
 
 nav:
   - 'Overview': index.md
+  - 'CZ cryoET Data Portal': surforama_for_data_portal.md
 
 plugins:
   - search
