@@ -68,7 +68,8 @@ class QtPointIO(QGroupBox):
         )
 
         # add the data to the viewer
-        self.surface_picker.points_layer.data = point_coordinates
+        with self.surface_picker.points_layer.events.data.blocker():
+            self.surface_picker.points_layer.data = point_coordinates
         self.surface_picker.points_layer.features = features_table
 
         self.surface_picker.normal_vectors_layer.data = normal_data
