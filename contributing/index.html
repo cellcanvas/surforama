@@ -12,13 +12,11 @@
         <meta name="author" content="Alister Burt and Kevin Yamauchi">
       
       
-        <link rel="canonical" href="https://github.com/cellcanvas/surforama/surforama_for_data_portal/">
+        <link rel="canonical" href="https://github.com/cellcanvas/surforama/contributing/">
       
       
-        <link rel="prev" href="../installation/">
+        <link rel="prev" href="../surforama_for_data_portal/">
       
-      
-        <link rel="next" href="../contributing/">
       
       
       <link rel="icon" href="../assets/images/favicon.png">
@@ -26,7 +24,7 @@
     
     
       
-        <title>CZ cryoET Data Portal - surforama</title>
+        <title>Contributing - surforama</title>
       
     
     
@@ -84,7 +82,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#loading-data-from-the-cz-cryoet-data-portal" class="md-skip">
+        <a href="#contributing-to-surforama" class="md-skip">
           Skip to content
         </a>
       
@@ -120,7 +118,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              CZ cryoET Data Portal
+              Contributing
             
           </span>
         </div>
@@ -322,6 +320,26 @@
       
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../surforama_for_data_portal/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    CZ cryoET Data Portal
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
     
   
   
@@ -338,7 +356,7 @@
           
   
   <span class="md-ellipsis">
-    CZ cryoET Data Portal
+    Contributing
   </span>
   
 
@@ -349,7 +367,7 @@
         
   
   <span class="md-ellipsis">
-    CZ cryoET Data Portal
+    Contributing
   </span>
   
 
@@ -371,9 +389,9 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#script" class="md-nav__link">
+  <a href="#developer-installation" class="md-nav__link">
     <span class="md-ellipsis">
-      Script
+      developer installation
     </span>
   </a>
   
@@ -383,26 +401,6 @@
   
 </nav>
       
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../contributing/" class="md-nav__link">
-        
-  
-  <span class="md-ellipsis">
-    Contributing
-  </span>
-  
-
-      </a>
     </li>
   
 
@@ -434,9 +432,9 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#script" class="md-nav__link">
+  <a href="#developer-installation" class="md-nav__link">
     <span class="md-ellipsis">
-      Script
+      developer installation
     </span>
   </a>
   
@@ -460,89 +458,14 @@
   
 
 
-<div><h1 id="loading-data-from-the-cz-cryoet-data-portal">Loading data from the <a href="https://cryoetdataportal.czscience.com/">CZ cryoET Data Portal</a></h1>
-<p>For this code to work you'll need to install <code>cryoet-data-portal</code> which you can do by following the installation instructions on <a href="https://chanzuckerberg.github.io/cryoet-data-portal/">this site</a>.</p>
-<h2 id="script">Script</h2>
-<p>This script will:
-- load a tomogram, membrane annotation, and points from the cryoET data portal
-- run connected components and return the 3rd largest component (in this dataset the large membranes can be slow for <code>surforama</code>)
-- open the Surforama widget</p>
-<p>Once that has happened there are some interactive steps:
-- select the layer for the 3rd largest component in <code>surforama</code>
-- run <code>Generate Mesh</code>
-- run <code>start surfing</code>
-- explore the surface of this section of membrane</p>
-<div class="highlight"><pre><span></span><code><span class="kn">import</span> <span class="nn">cryoet_data_portal</span> <span class="k">as</span> <span class="nn">portal</span>
-<span class="kn">import</span> <span class="nn">zarr</span>
-<span class="kn">import</span> <span class="nn">napari</span>
-<span class="kn">import</span> <span class="nn">s3fs</span>
-<span class="kn">import</span> <span class="nn">ndjson</span>
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">scipy.ndimage</span> <span class="k">as</span> <span class="nn">ndi</span>
-<span class="kn">from</span> <span class="nn">skimage</span> <span class="kn">import</span> <span class="n">measure</span>
-<span class="kn">import</span> <span class="nn">surforama</span>
-
-<span class="c1"># Instantiate a client, using the data portal GraphQL API by default</span>
-<span class="n">client</span> <span class="o">=</span> <span class="n">portal</span><span class="o">.</span><span class="n">Client</span><span class="p">()</span>
-
-<span class="n">fs</span> <span class="o">=</span> <span class="n">s3fs</span><span class="o">.</span><span class="n">S3FileSystem</span><span class="p">(</span><span class="n">anon</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-
-<span class="c1"># Use the find method to select datasets that contain membrane annotations</span>
-<span class="n">datasets</span> <span class="o">=</span> <span class="n">portal</span><span class="o">.</span><span class="n">Dataset</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="p">[</span><span class="n">portal</span><span class="o">.</span><span class="n">Dataset</span><span class="o">.</span><span class="n">runs</span><span class="o">.</span><span class="n">tomogram_voxel_spacings</span><span class="o">.</span><span class="n">annotations</span><span class="o">.</span><span class="n">object_name</span><span class="o">.</span><span class="n">ilike</span><span class="p">(</span><span class="s2">"%membrane%"</span><span class="p">)])</span>
-<span class="n">dataset_id</span> <span class="o">=</span> <span class="n">datasets</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">id</span>
-
-<span class="c1"># An example Tomogram</span>
-<span class="n">tomo</span> <span class="o">=</span> <span class="n">portal</span><span class="o">.</span><span class="n">Tomogram</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="p">[</span><span class="n">portal</span><span class="o">.</span><span class="n">Tomogram</span><span class="o">.</span><span class="n">tomogram_voxel_spacing</span><span class="o">.</span><span class="n">run</span><span class="o">.</span><span class="n">dataset_id</span> <span class="o">==</span> <span class="n">dataset_id</span><span class="p">])[</span><span class="mi">0</span><span class="p">]</span>
-<span class="n">run_id</span> <span class="o">=</span> <span class="n">tomo</span><span class="o">.</span><span class="n">tomogram_voxel_spacing</span><span class="o">.</span><span class="n">run</span><span class="o">.</span><span class="n">id</span>
-
-<span class="c1"># Show downscaled tomogram</span>
-<span class="n">g</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">open_array</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">tomo</span><span class="o">.</span><span class="n">https_omezarr_dir</span><span class="si">}</span><span class="s2">/2"</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">'r'</span><span class="p">)</span>
-
-<span class="c1"># Annotations</span>
-<span class="n">annotations</span> <span class="o">=</span> <span class="n">tomo</span><span class="o">.</span><span class="n">tomogram_voxel_spacing</span><span class="o">.</span><span class="n">annotations</span>
-
-<span class="c1"># Ribosomes</span>
-<span class="n">ribosomes_a</span> <span class="o">=</span> <span class="n">annotations</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-<span class="n">ribosome_name</span> <span class="o">=</span> <span class="n">ribosomes_a</span><span class="o">.</span><span class="n">object_name</span>
-<span class="n">ribosomes</span> <span class="o">=</span> <span class="p">[]</span>
-<span class="k">with</span> <span class="n">fs</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">ribosomes_a</span><span class="o">.</span><span class="n">files</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">s3_path</span><span class="p">)</span> <span class="k">as</span> <span class="n">pointfile</span><span class="p">:</span>
-    <span class="k">for</span> <span class="n">point</span> <span class="ow">in</span> <span class="n">ndjson</span><span class="o">.</span><span class="n">reader</span><span class="p">(</span><span class="n">pointfile</span><span class="p">):</span>
-        <span class="n">ribosomes</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">point</span><span class="p">[</span><span class="s1">'location'</span><span class="p">][</span><span class="s1">'z'</span><span class="p">],</span> <span class="n">point</span><span class="p">[</span><span class="s1">'location'</span><span class="p">][</span><span class="s1">'y'</span><span class="p">],</span> <span class="n">point</span><span class="p">[</span><span class="s1">'location'</span><span class="p">][</span><span class="s1">'x'</span><span class="p">]))</span>
-
-<span class="c1"># Membrane</span>
-<span class="n">membrane_a</span> <span class="o">=</span> <span class="n">annotations</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-<span class="n">membrane_name</span> <span class="o">=</span> <span class="n">membrane_a</span><span class="o">.</span><span class="n">object_name</span>
-<span class="n">membrane_path</span> <span class="o">=</span> <span class="n">membrane_a</span><span class="o">.</span><span class="n">files</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">https_path</span>
-<span class="n">membrane</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">open_array</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">membrane_path</span><span class="si">}</span><span class="s2">/2"</span><span class="p">)</span>
-
-<span class="c1"># Run connected components on the membrane data</span>
-<span class="n">labeled_membrane</span><span class="p">,</span> <span class="n">num_features</span> <span class="o">=</span> <span class="n">ndi</span><span class="o">.</span><span class="n">label</span><span class="p">(</span><span class="n">membrane</span><span class="p">)</span>
-<span class="n">sizes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">bincount</span><span class="p">(</span><span class="n">labeled_membrane</span><span class="o">.</span><span class="n">ravel</span><span class="p">())</span>
-
-<span class="c1"># Exclude background (label 0) and sort the component sizes in descending order</span>
-<span class="c1"># Get the labels sorted in reverse by component size (excluding background)</span>
-<span class="n">sorted_labels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">sizes</span><span class="p">[</span><span class="mi">1</span><span class="p">:])[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span>
-
-<span class="c1"># Get the label of the 3rd largest component so we don't have a large mesh</span>
-<span class="n">third_largest_label</span> <span class="o">=</span> <span class="n">sorted_labels</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
-
-<span class="c1"># Create a mask</span>
-<span class="n">third_largest_component_mask</span> <span class="o">=</span> <span class="n">labeled_membrane</span> <span class="o">==</span> <span class="n">third_largest_label</span>
-
-<span class="c1"># Load into Surforama and Napari</span>
-<span class="n">viewer</span> <span class="o">=</span> <span class="n">napari</span><span class="o">.</span><span class="n">Viewer</span><span class="p">(</span><span class="n">ndisplay</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
-
-<span class="c1"># Add tomogram, ribosomes, and membrane data to the viewer</span>
-<span class="n">viewer</span><span class="o">.</span><span class="n">add_points</span><span class="p">(</span><span class="n">ribosomes</span><span class="p">,</span> <span class="n">face_color</span><span class="o">=</span><span class="s2">"red"</span><span class="p">)</span>
-<span class="n">viewer</span><span class="o">.</span><span class="n">add_image</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
-<span class="n">viewer</span><span class="o">.</span><span class="n">add_labels</span><span class="p">(</span><span class="n">membrane</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
-<span class="n">viewer</span><span class="o">.</span><span class="n">add_labels</span><span class="p">(</span><span class="n">third_largest_component_mask</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
-
-<span class="c1"># Instantiate the Surforama widget</span>
-<span class="n">surforama_widget</span> <span class="o">=</span> <span class="n">surforama</span><span class="o">.</span><span class="n">QtSurforama</span><span class="p">(</span><span class="n">viewer</span><span class="p">)</span>
-<span class="n">viewer</span><span class="o">.</span><span class="n">window</span><span class="o">.</span><span class="n">add_dock_widget</span><span class="p">(</span><span class="n">surforama_widget</span><span class="p">,</span> <span class="n">area</span><span class="o">=</span><span class="s2">"right"</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">"Surforama"</span><span class="p">)</span>
-
-<span class="n">napari</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+<div><h1 id="contributing-to-surforama">Contributing to Surforama</h1>
+<h2 id="developer-installation">developer installation</h2>
+<p>If you would like to make changes to the surforama source code, you can install surformama with the developer tools as follows:</p>
+<p></p><div class="highlight"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>/path/to/your/surforama/source/code/folder
+pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">".[dev]"</span>
+</code></pre></div>
+We use pre-commit to keep the code tidy. Install the pre-commit hooks to activate the checks:
+<div class="highlight"><pre><span></span><code>pre-commit<span class="w"> </span>install
 </code></pre></div></div>
 
 
