@@ -462,6 +462,7 @@
 
 <div><h1 id="loading-data-from-the-cz-cryoet-data-portal">Loading data from the <a href="https://cryoetdataportal.czscience.com/">CZ cryoET Data Portal</a></h1>
 <p>For this code to work you'll need to install <code>cryoet-data-portal</code> which you can do by following the installation instructions on <a href="https://chanzuckerberg.github.io/cryoet-data-portal/">this site</a>.</p>
+<p><img alt="Screenshot of surforama with data from the dataportal" src="../surforama_data_portal_002_light.png"></p>
 <h2 id="script">Script</h2>
 <p>This script will:
 - load a tomogram, membrane annotation, and points from the cryoET data portal
@@ -537,6 +538,8 @@
 <span class="n">viewer</span><span class="o">.</span><span class="n">add_image</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
 <span class="n">viewer</span><span class="o">.</span><span class="n">add_labels</span><span class="p">(</span><span class="n">membrane</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
 <span class="n">viewer</span><span class="o">.</span><span class="n">add_labels</span><span class="p">(</span><span class="n">third_largest_component_mask</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+
+<span class="c1"># may need to use viewer.layers[-1].scale = (4, 4, 4)</span>
 
 <span class="c1"># Instantiate the Surforama widget</span>
 <span class="n">surforama_widget</span> <span class="o">=</span> <span class="n">surforama</span><span class="o">.</span><span class="n">QtSurforama</span><span class="p">(</span><span class="n">viewer</span><span class="p">)</span>
