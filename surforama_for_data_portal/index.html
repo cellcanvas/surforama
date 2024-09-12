@@ -462,17 +462,21 @@
 
 <div><h1 id="loading-data-from-the-cz-cryoet-data-portal">Loading data from the <a href="https://cryoetdataportal.czscience.com/">CZ cryoET Data Portal</a></h1>
 <p>For this code to work you'll need to install <code>cryoet-data-portal</code> which you can do by following the installation instructions on <a href="https://chanzuckerberg.github.io/cryoet-data-portal/">this site</a>.</p>
-<p><img alt="Screenshot of surforama with data from the dataportal" src="../surforama_data_portal_002_light.png"></p>
+<p><img alt="Screenshot of surforama with data from the CZ cryoet data portal. This shows the 3rd largest segmentatoin being rendered in surforama." src="../surforama_data_portal_002_light.png"></p>
 <h2 id="script">Script</h2>
-<p>This script will:
-- load a tomogram, membrane annotation, and points from the cryoET data portal
-- run connected components and return the 3rd largest component (in this dataset the large membranes can be slow for <code>surforama</code>)
-- open the Surforama widget</p>
-<p>Once that has happened there are some interactive steps:
-- select the layer for the 3rd largest component in <code>surforama</code>
-- run <code>Generate Mesh</code>
-- run <code>start surfing</code>
-- explore the surface of this section of membrane</p>
+<p>This script will:</p>
+<ul>
+<li>load a tomogram, membrane annotation, and points from the cryoET data portal</li>
+<li>run connected components and return the 3rd largest component (in this dataset the large membranes can be slow for <code>surforama</code>)</li>
+<li>open the Surforama widget</li>
+</ul>
+<p>Once that has happened there are some interactive steps:</p>
+<ul>
+<li>select the layer for the 3rd largest component in <code>surforama</code></li>
+<li>run <code>Generate Mesh</code></li>
+<li>run <code>start surfing</code></li>
+<li>explore the surface of this section of membrane</li>
+</ul>
 <div class="highlight"><pre><span></span><code><span class="kn">import</span> <span class="nn">cryoet_data_portal</span> <span class="k">as</span> <span class="nn">portal</span>
 <span class="kn">import</span> <span class="nn">zarr</span>
 <span class="kn">import</span> <span class="nn">napari</span>
