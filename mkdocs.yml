@@ -83,7 +83,10 @@ extra:
 
 nav:
   - 'Overview': index.md
+  - 'Getting started': getting_started.md
+  - 'Installation': installation.md
   - 'CZ cryoET Data Portal': surforama_for_data_portal.md
+  - 'Contributing': contributing.md
 
 plugins:
   - search
