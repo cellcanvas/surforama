@@ -2,17 +2,19 @@
 
 For this code to work you'll need to install `cryoet-data-portal` which you can do by following the installation instructions on [this site](https://chanzuckerberg.github.io/cryoet-data-portal/).
 
-![Screenshot of surforama with data from the dataportal](surforama_data_portal_002_light.png)
+![Screenshot of surforama with data from the CZ cryoet data portal. This shows the 3rd largest segmentatoin being rendered in surforama.](surforama_data_portal_002_light.png)
 
 ## Script
 
 This script will:
+
 - load a tomogram, membrane annotation, and points from the cryoET data portal
 - run connected components and return the 3rd largest component (in this dataset the large membranes can be slow for `surforama`)
 - open the Surforama widget
 
 
 Once that has happened there are some interactive steps:
+
 - select the layer for the 3rd largest component in `surforama`
 - run `Generate Mesh`
 - run `start surfing`
