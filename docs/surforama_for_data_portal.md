@@ -2,6 +2,8 @@
 
 For this code to work you'll need to install `cryoet-data-portal` which you can do by following the installation instructions on [this site](https://chanzuckerberg.github.io/cryoet-data-portal/).
 
+![Screenshot of surforama with data from the dataportal](surforama_data_portal_002_light.png)
+
 ## Script
 
 This script will:
@@ -15,6 +17,7 @@ Once that has happened there are some interactive steps:
 - run `Generate Mesh`
 - run `start surfing`
 - explore the surface of this section of membrane
+
 
 
 ```python
@@ -83,6 +86,8 @@ viewer.add_points(ribosomes, face_color="red")
 viewer.add_image(g, scale=(4, 4, 4))
 viewer.add_labels(membrane, scale=(4, 4, 4))
 viewer.add_labels(third_largest_component_mask, scale=(4, 4, 4))
+
+# may need to use viewer.layers[-1].scale = (4, 4, 4)
 
 # Instantiate the Surforama widget
 surforama_widget = surforama.QtSurforama(viewer)
