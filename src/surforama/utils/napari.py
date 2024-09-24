@@ -65,6 +65,11 @@ def vectors_data_from_points_data(
     if len(point_coordinates) == 0:
         # if there are no points, there are no vectors
         return np.empty((0, 2, 3)), np.empty((0, 2, 3))
+
+    # check if the features table is empty
+    if features_table.empty:
+        return np.empty((0, 2, 3)), np.empty((0, 2, 3))
+
     # get the vectors
     normal_vectors = features_table[
         [NAPARI_NORMAL_0, NAPARI_NORMAL_1, NAPARI_NORMAL_2]
