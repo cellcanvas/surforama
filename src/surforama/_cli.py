@@ -4,7 +4,7 @@ import typer
 from typing_extensions import Annotated
 
 app = typer.Typer(
-    help="Surforama: wiew tomogram densities on a surface.",
+    help="Surforama: view tomogram densities on a surface.",
     no_args_is_help=True,
 )
 
