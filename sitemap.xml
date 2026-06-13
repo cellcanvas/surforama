@@ -2,22 +2,26 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://github.com/cellcanvas/surforama/</loc>
-         <lastmod>2024-12-01</lastmod>
+         <lastmod>2026-06-13</lastmod>
     </url>
     <url>
          <loc>https://github.com/cellcanvas/surforama/contributing/</loc>
-         <lastmod>2024-12-01</lastmod>
+         <lastmod>2026-06-13</lastmod>
     </url>
     <url>
          <loc>https://github.com/cellcanvas/surforama/getting_started/</loc>
-         <lastmod>2024-12-01</lastmod>
+         <lastmod>2026-06-13</lastmod>
     </url>
     <url>
          <loc>https://github.com/cellcanvas/surforama/installation/</loc>
-         <lastmod>2024-12-01</lastmod>
+         <lastmod>2026-06-13</lastmod>
     </url>
     <url>
          <loc>https://github.com/cellcanvas/surforama/surforama_for_data_portal/</loc>
-         <lastmod>2024-12-01</lastmod>
+         <lastmod>2026-06-13</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/cellcanvas/surforama/usage_tips/</loc>
+         <lastmod>2026-06-13</lastmod>
     </url>
 </urlset>
